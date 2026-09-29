@@ -1,4 +1,4 @@
- # 🔥 Ember
+ #  Ember
 
 <p align="center">
   <h3 align="center">A beautiful home for your thoughts.</h3>
@@ -406,5 +406,5 @@ A place where your thoughts belong.
 </p>
 
 <p align="center">
-  🔥 Ember — A beautiful home for your thoughts.
+   Ember — A beautiful home for your thoughts.
 </p>
