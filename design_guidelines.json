@@ -1,0 +1,110 @@
+{
+  "project_name": "Smart AI Notes",
+  "theme": "Light and Dark Mode (Toggle Required)",
+  "archetype": "Archetype 4: Swiss & High-Contrast (with Soft Utility touches for airy, minimal SaaS feel)",
+  "vibe": "Minimal, elegant, distraction-free, premium Notion-inspired",
+  "typography": {
+    "headings": {
+      "font_family": "Outfit, sans-serif",
+      "weights": ["400", "600", "800"],
+      "usage": "Use tight tracking (tracking-tight) for H1-H3. Never center align by default."
+    },
+    "body": {
+      "font_family": "Inter, sans-serif",
+      "weights": ["400", "500"],
+      "usage": "Use leading-relaxed for note editor body."
+    },
+    "scales": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl tracking-tight",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl tracking-tight",
+      "h3": "text-xl sm:text-2xl",
+      "body": "text-base",
+      "small": "text-sm"
+    }
+  },
+  "colors": {
+    "light_mode": {
+      "background": "#FAFAFA",
+      "surface": "#FFFFFF",
+      "border": "rgba(0,0,0,0.08)",
+      "text_primary": "#171717",
+      "text_secondary": "#525252",
+      "ai_accent": "#FDE68A",
+      "ai_accent_text": "#92400E",
+      "primary_cta": "#171717",
+      "primary_cta_text": "#FFFFFF"
+    },
+    "dark_mode": {
+      "background": "#0A0A0A",
+      "surface": "#141414",
+      "border": "rgba(255,255,255,0.1)",
+      "text_primary": "#F5F5F5",
+      "text_secondary": "#A3A3A3",
+      "ai_accent": "#F59E0B",
+      "ai_accent_text": "#FFFBEB",
+      "primary_cta": "#EDEDED",
+      "primary_cta_text": "#0A0A0A"
+    }
+  },
+  "surfaces": {
+    "top_navbar": "Crystal Glassmorphism: backdrop-blur-xl bg-white/70 (light) or bg-black/60 (dark) with 1px delicate inner border (border-white/20 or border-white/10).",
+    "sidebar": "Solid flat background (match main bg), 1px solid border-r (border-border).",
+    "editor_canvas": "Pure surface color, borderless, generous padding (p-12 md:p-24), max-width 800px center-aligned block.",
+    "ai_panels_and_chat": "Neumorphism mix: Float over canvas with shadow-[0_8px_32px_rgba(0,0,0,0.12)], border-border/40, rounded-2xl.",
+    "flashcards": "Solid background, hover: -translate-y-1, shadow-lg, border border-border/50."
+  },
+  "layout_and_spacing": {
+    "strategy": "Generous Spacing (Tailwind Scale p-8, p-12). Bento grids for AI study tools/quizzes. Standard Notion-like layout for editor.",
+    "components": {
+      "sidebar": "Collapsible w-64, hidden on mobile by default.",
+      "navbar": "Sticky top-0 z-50 h-14 flex items-center justify-between px-6.",
+      "editor": "pt-24 pb-32 px-6 max-w-4xl mx-auto",
+      "fab": "fixed bottom-8 right-8 z-50 shadow-xl rounded-full p-4"
+    }
+  },
+  "motion_and_interactions": {
+    "libraries": ["framer-motion", "sonner"],
+    "rules": [
+      "Hover states: transform -translate-y-0.5, opacity transitions.",
+      "Real-time avatars: Animate presence with framer-motion.",
+      "Drag-drop: Use framer-motion layout animations.",
+      "Slash commands menu: Fade in/out, slide-up 5px."
+    ]
+  },
+  "components_instructions": {
+    "shadcn": ["dropdown-menu", "dialog", "avatar", "button", "input", "skeleton", "tabs", "tooltip"],
+    "custom": [
+      "RichTextEditor: Implement minimal contenteditable block, styled purely with Tailwind prose.",
+      "SlashCommandMenu: Floating popover anchored to text cursor.",
+      "AIChatPanel: Sliding right-side drawer (fixed right-0 h-full w-80)."
+    ],
+    "testing": "All interactive elements MUST include data-testid (e.g., data-testid='new-note-button', data-testid='ai-assistant-toggle')."
+  },
+  "image_urls": [
+    {
+      "category": "collaboration_avatars",
+      "description": "Real-time user avatars for the top navbar.",
+      "url": "https://images.unsplash.com/photo-1769636929388-99eff95d3bf1?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NjV8MHwxfHNlYXJjaHwzfHxwcm9mZXNzaW9uYWwlMjBoZWFkc2hvdCUyMHBvcnRyYWl0fGVufDB8fHx8MTc3Nzk4NDQzNHww&ixlib=rb-4.1.0&q=85"
+    },
+    {
+      "category": "collaboration_avatars",
+      "description": "Real-time user avatars for the top navbar.",
+      "url": "https://images.unsplash.com/photo-1576558656222-ba66febe3dec?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NjV8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBoZWFkc2hvdCUyMHBvcnRyYWl0fGVufDB8fHx8MTc3Nzk4NDQzNHww&ixlib=rb-4.1.0&q=85"
+    },
+    {
+      "category": "collaboration_avatars",
+      "description": "Real-time user avatars for the top navbar.",
+      "url": "https://images.unsplash.com/photo-1762522926157-bcc04bf0b10a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NjV8MHwxfHNlYXJjaHwyfHxwcm9mZXNzaW9uYWwlMjBoZWFkc2hvdCUyMHBvcnRyYWl0fGVufDB8fHx8MTc3Nzk4NDQzNHww&ixlib=rb-4.1.0&q=85"
+    }
+  ],
+  "icons": "lucide-react",
+  "instructions_to_main_agent": [
+    "Prioritize optical alignment over strict geometric alignment for buttons and icons.",
+    "Never use pure black or pure white without adding slight tint/opacity.",
+    "Ensure 'Inter' is NOT used for headings. Import and use 'Outfit' instead.",
+    "Implement the 'Crystal Glass' effect precisely for the navbar as defined in surfaces.",
+    "Mock AI text generation by adding a 1-second timeout and generating text character by character (framer-motion or useEffect).",
+    "Ensure all data-testid attributes are kebab-cased and role-based.",
+    "Use .js files (JSX) instead of .tsx for all components as per project environment constraints."
+  ]
+}

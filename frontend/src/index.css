@@ -1,0 +1,154 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", "Geist", "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'cv02','cv03','cv04','cv11';
+  letter-spacing: -0.011em;
+}
+
+code, pre, .mono {
+  font-family: 'JetBrains Mono', Menlo, Monaco, Consolas, monospace;
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 99%;
+    --foreground: 240 10% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 12%;
+    --primary: 240 6% 10%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 5% 96%;
+    --secondary-foreground: 240 6% 20%;
+    --muted: 240 5% 95%;
+    --muted-foreground: 240 4% 48%;
+    --accent: 258 68% 58%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 6% 91%;
+    --input: 240 6% 91%;
+    --ring: 258 68% 58%;
+    --radius: 0.625rem;
+
+    --ai: 258 68% 58%;
+    --ai-foreground: 0 0% 98%;
+  }
+  .dark {
+    --background: 240 6% 7%;
+    --foreground: 0 0% 95%;
+    --card: 240 6% 9%;
+    --card-foreground: 0 0% 95%;
+    --popover: 240 6% 9%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 6% 10%;
+    --secondary: 240 5% 13%;
+    --secondary-foreground: 0 0% 90%;
+    --muted: 240 5% 12%;
+    --muted-foreground: 240 4% 56%;
+    --accent: 258 75% 65%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5% 15%;
+    --input: 240 5% 15%;
+    --ring: 258 75% 65%;
+
+    --ai: 258 75% 65%;
+    --ai-foreground: 0 0% 98%;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground transition-colors duration-150; }
+  h1, h2, h3, h4 { font-family: inherit; letter-spacing: -0.022em; }
+}
+
+@layer components {
+  /* Restrained, Crisp Glass & Surfaces */
+  .glass {
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    background-color: hsl(var(--background) / 0.85);
+    border: 1px solid hsl(var(--border) / 0.8);
+  }
+  .glass-card {
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    background-color: hsl(var(--card) / 0.9);
+    border: 1px solid hsl(var(--border));
+  }
+  .glass-strong {
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    background-color: hsl(var(--background) / 0.92);
+    border: 1px solid hsl(var(--border));
+  }
+
+  /* Physical, Calm Shadows (Linear/Raycast style) */
+  .shadow-ambient {
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04), 0 1px 3px 0 rgba(0, 0, 0, 0.02);
+  }
+  .dark .shadow-ambient {
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.4), 0 1px 2px -1px rgba(0, 0, 0, 0.3);
+  }
+
+  .shadow-float {
+    box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.04);
+  }
+  .dark .shadow-float {
+    box-shadow: 0 12px 32px -4px rgba(0, 0, 0, 0.6), 0 4px 12px -2px rgba(0, 0, 0, 0.4);
+  }
+
+  .ai-chip {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium tracking-tight;
+    background-color: hsl(var(--secondary));
+    color: hsl(var(--foreground));
+    border: 1px solid hsl(var(--border));
+  }
+
+  /* High-Readability Editorial Prose */
+  .prose-note {
+    @apply text-[1.0625rem] leading-[1.8] text-foreground tracking-[-0.011em];
+  }
+  .prose-note h1 { @apply text-2xl sm:text-3xl font-semibold mt-8 mb-3 tracking-tight text-foreground; }
+  .prose-note h2 { @apply text-xl sm:text-2xl font-semibold mt-6 mb-2.5 tracking-tight text-foreground; }
+  .prose-note h3 { @apply text-lg sm:text-xl font-medium mt-5 mb-2 tracking-tight text-foreground; }
+  .prose-note p { @apply my-3.5 leading-[1.8]; }
+  .prose-note ul { @apply my-3.5 ml-5 list-disc space-y-1.5 text-foreground; }
+  .prose-note ol { @apply my-3.5 ml-5 list-decimal space-y-1.5 text-foreground; }
+  .prose-note code { @apply px-1.5 py-0.5 rounded bg-muted text-[0.875rem] font-mono border border-border/40; }
+  .prose-note blockquote { @apply border-l-2 border-primary/40 pl-4 py-1 italic text-muted-foreground my-4; }
+
+  .editor-area:empty::before {
+    content: attr(data-placeholder);
+    color: hsl(var(--muted-foreground) / 0.4);
+    pointer-events: none;
+  }
+}
+
+::selection {
+  background-color: hsl(var(--accent) / 0.2);
+  color: inherit;
+}
+
+/* Subtle, Minimal Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.3); }
