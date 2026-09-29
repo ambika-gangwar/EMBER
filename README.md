@@ -383,7 +383,7 @@ Ember exists to become a personal cognitive operating system for learners, build
 
 ---
 
-# ❤️ Design Philosophy
+#   Design Philosophy
 
 Technology should feel human.
 
