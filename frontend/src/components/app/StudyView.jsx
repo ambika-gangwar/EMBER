@@ -473,43 +473,55 @@ export default function StudyView({ noteId, embedded = false }) {
               {/* Spaced Repetition Grading Controls */}
               {flipped && (
                 <motion.div
-                  initial={{ opacity: 0, y: 8 }}
+                  initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="grid grid-cols-4 gap-2 pt-2"
+                  className="grid grid-cols-4 gap-2 pt-2 select-none"
                 >
                   <button
                     onClick={() => gradeCard("1")}
-                    className="p-3 rounded-2xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-400 text-xs font-semibold transition-all text-center"
+                    className="p-2.5 rounded-xl border border-border/80 bg-card hover:bg-muted/60 text-foreground text-xs font-medium transition-all text-center shadow-ambient"
                   >
-                    <div>Again</div>
-                    <div className="text-[10px] opacity-70 font-mono">1</div>
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                      <span>Again</span>
+                    </div>
+                    <div className="text-[10px] text-muted-foreground/60 font-mono mt-0.5">1</div>
                   </button>
                   <button
                     onClick={() => gradeCard("2")}
-                    className="p-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-semibold transition-all text-center"
+                    className="p-2.5 rounded-xl border border-border/80 bg-card hover:bg-muted/60 text-foreground text-xs font-medium transition-all text-center shadow-ambient"
                   >
-                    <div>Hard</div>
-                    <div className="text-[10px] opacity-70 font-mono">2</div>
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                      <span>Hard</span>
+                    </div>
+                    <div className="text-[10px] text-muted-foreground/60 font-mono mt-0.5">2</div>
                   </button>
                   <button
                     onClick={() => gradeCard("3")}
-                    className="p-3 rounded-2xl border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 text-blue-700 dark:text-blue-400 text-xs font-semibold transition-all text-center"
+                    className="p-2.5 rounded-xl border border-border/80 bg-card hover:bg-muted/60 text-foreground text-xs font-medium transition-all text-center shadow-ambient"
                   >
-                    <div>Good</div>
-                    <div className="text-[10px] opacity-70 font-mono">3</div>
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                      <span>Good</span>
+                    </div>
+                    <div className="text-[10px] text-muted-foreground/60 font-mono mt-0.5">3</div>
                   </button>
                   <button
                     onClick={() => gradeCard("4")}
-                    className="p-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-semibold transition-all text-center"
+                    className="p-2.5 rounded-xl border border-border/80 bg-card hover:bg-muted/60 text-foreground text-xs font-medium transition-all text-center shadow-ambient"
                   >
-                    <div>Easy</div>
-                    <div className="text-[10px] opacity-70 font-mono">4</div>
+                    <div className="flex items-center justify-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                      <span>Easy</span>
+                    </div>
+                    <div className="text-[10px] text-muted-foreground/60 font-mono mt-0.5">4</div>
                   </button>
                 </motion.div>
               )}
             </div>
           ) : (
-            <div className="grid sm:grid-cols-2 gap-4">
+            <div className="grid sm:grid-cols-2 gap-3">
               {cards.map((c, i) => (
                 <FlashcardItem key={i} q={c.q} a={c.a} idx={i} category={c.category} />
               ))}

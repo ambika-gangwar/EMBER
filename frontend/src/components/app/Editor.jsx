@@ -599,7 +599,7 @@ export default function Editor({ note, onChanged, onDeleted, onOpenAIModal }) {
       </AnimatePresence>
 
       {/* Top Header Bar: Clean, Calm, Mode-Aware */}
-      <div className="sticky top-12 z-10 bg-background/80 backdrop-blur-md border-b border-border/40 px-4 sm:px-8 py-2 flex items-center justify-between gap-4">
+      <div className="sticky top-11 z-10 bg-background/80 backdrop-blur-md border-b border-border/40 px-4 sm:px-8 py-2 flex items-center justify-between gap-4 select-none">
         {/* Left: Priority & Pin Status */}
         <div className="flex items-center gap-1.5">
           <PriorityPicker
@@ -640,13 +640,13 @@ export default function Editor({ note, onChanged, onDeleted, onOpenAIModal }) {
         <div className="flex items-center gap-1.5">
           {/* Sub-view switcher in Create Mode */}
           {notebookMode === "create" && createSubView !== "mindmap" && createSubView !== "connections" && (
-            <div className="flex items-center p-0.5 rounded-md bg-secondary/80 border border-border/60">
+            <div className="flex items-center p-0.5 rounded-lg bg-secondary/80 border border-border/60">
               <button
                 type="button"
                 onClick={() => setCreateSubView("edit")}
-                className={`h-6 px-2 text-xs rounded transition-colors ${
+                className={`h-6 px-2.5 text-xs rounded-md transition-colors ${
                   createSubView === "edit"
-                    ? "bg-background text-foreground shadow-xs font-medium"
+                    ? "bg-card text-foreground shadow-xs font-medium"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
                 title="Write mode"
@@ -656,9 +656,9 @@ export default function Editor({ note, onChanged, onDeleted, onOpenAIModal }) {
               <button
                 type="button"
                 onClick={() => setCreateSubView("split")}
-                className={`h-6 px-2 text-xs rounded transition-colors ${
+                className={`h-6 px-2.5 text-xs rounded-md transition-colors ${
                   createSubView === "split"
-                    ? "bg-background text-foreground shadow-xs font-medium"
+                    ? "bg-card text-foreground shadow-xs font-medium"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
                 title="Split editor & preview"
@@ -668,9 +668,9 @@ export default function Editor({ note, onChanged, onDeleted, onOpenAIModal }) {
               <button
                 type="button"
                 onClick={() => setCreateSubView("preview")}
-                className={`h-6 px-2 text-xs rounded transition-colors ${
+                className={`h-6 px-2.5 text-xs rounded-md transition-colors ${
                   createSubView === "preview"
-                    ? "bg-background text-foreground shadow-xs font-medium"
+                    ? "bg-card text-foreground shadow-xs font-medium"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
                 title="Preview"
@@ -783,7 +783,7 @@ export default function Editor({ note, onChanged, onDeleted, onOpenAIModal }) {
 
           {/* Hero Writing Canvas (Edit / Split / Preview) */}
           {(createSubView === "edit" || createSubView === "split" || createSubView === "preview") && (
-            <div className="max-w-[720px] w-full mx-auto px-6 pt-10 flex-1 flex flex-col">
+            <div className="max-w-[700px] w-full mx-auto px-6 pt-10 pb-28 flex-1 flex flex-col">
               {/* Note Title Input */}
               <input
                 value={title}
@@ -792,7 +792,7 @@ export default function Editor({ note, onChanged, onDeleted, onOpenAIModal }) {
                   sendEdit(e.target.value, content);
                 }}
                 placeholder="Untitled"
-                className="w-full text-3xl sm:text-4xl font-semibold tracking-tight bg-transparent border-0 outline-none pb-3 placeholder:text-muted-foreground/30 text-foreground transition-colors"
+                className="w-full text-3xl sm:text-4xl font-semibold tracking-tight bg-transparent border-0 outline-none pb-2 placeholder:text-muted-foreground/30 text-foreground transition-colors"
                 data-testid="editor-title-input"
               />
 
@@ -835,7 +835,7 @@ export default function Editor({ note, onChanged, onDeleted, onOpenAIModal }) {
                     onSelect={handleSelect}
                     onKeyDown={handleKeyDown}
                     placeholder="Write your note... Type '/' for formatting and commands."
-                    className="w-full min-h-[550px] h-full resize-none bg-transparent border-0 outline-none text-[1.0625rem] leading-[1.8] text-foreground placeholder:text-muted-foreground/30 font-normal font-sans"
+                    className="w-full min-h-[550px] h-full resize-none bg-transparent border-0 outline-none text-[1.0625rem] leading-[1.85] text-foreground placeholder:text-muted-foreground/30 font-normal font-sans"
                     data-testid="editor-content-input"
                   />
                 )}
@@ -881,18 +881,18 @@ export default function Editor({ note, onChanged, onDeleted, onOpenAIModal }) {
             </div>
           )}
 
-          {/* Floating Status Bar Footer in Create Mode */}
-          <footer className="fixed bottom-4 left-1/2 -translate-x-1/2 z-20 px-4 py-1.5 rounded-full border bg-background/90 backdrop-blur-md shadow-ambient text-[11px] text-muted-foreground flex items-center gap-4">
+          {/* Quiet Status Bar Footer in Create Mode */}
+          <footer className="fixed bottom-3.5 left-1/2 -translate-x-1/2 z-20 px-3.5 py-1 rounded-full border border-border/60 bg-background/90 backdrop-blur-md shadow-ambient text-[11px] text-muted-foreground flex items-center gap-3 select-none">
             <div className="flex items-center gap-1.5">
               {savingState === "saving" ? (
                 <>
-                  <Loader2 size={11} className="animate-spin text-amber-500" />
+                  <Loader2 size={10} className="animate-spin text-amber-500" />
                   <span>Saving...</span>
                 </>
               ) : (
                 <>
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                  <span>All changes saved</span>
+                  <span>Saved</span>
                 </>
               )}
             </div>
@@ -902,24 +902,8 @@ export default function Editor({ note, onChanged, onDeleted, onOpenAIModal }) {
             <div className="flex items-center gap-2">
               <span>{stats.words} words</span>
               <span>·</span>
-              <span>{stats.chars} chars</span>
-              <span>·</span>
-              <span className="inline-flex items-center gap-1">
-                <Clock size={10} /> {stats.readingTime} min read
-              </span>
+              <span>{stats.readingTime} min read</span>
             </div>
-
-            <div className="h-3 w-px bg-border" />
-
-            <button
-              type="button"
-              onClick={onOpenAIModal}
-              className="inline-flex items-center gap-1 hover:text-foreground transition-colors font-medium"
-              title="Open AI Model Settings"
-            >
-              <Sparkles size={11} className="text-amber-500" />
-              <span>AI Partner Active</span>
-            </button>
           </footer>
         </>
       )}

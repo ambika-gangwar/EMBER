@@ -237,34 +237,34 @@ function Welcome({
         <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-foreground">
           {firstName ? `${greeting}, ${firstName}.` : `${greeting}.`}
         </h1>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Capture thoughts, refine mental models, or continue active notes.
+        <p className="mt-1.5 text-xs text-muted-foreground">
+          What's on your mind today?
         </p>
       </div>
 
       {/* Contemplative Daily Reflection Card */}
       {quote && (
         <div
-          className="mt-6 p-5 rounded-xl border border-border/70 bg-secondary/30 shadow-xs relative overflow-hidden"
+          className="mt-6 p-5 rounded-2xl border border-border/80 bg-card shadow-ambient relative overflow-hidden"
           data-testid="welcome-spark-insight-card"
         >
           <div className="flex items-center justify-between gap-3">
-            <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
               {quote.category || "Reflection"}
             </span>
             {onRefreshQuote && (
               <button
                 onClick={onRefreshQuote}
-                className="h-6 w-6 rounded-md hover:bg-muted/80 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                className="h-6 w-6 rounded-md hover:bg-muted/60 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
                 title="Next prompt"
                 data-testid="welcome-refresh-insight-btn"
               >
-                <RefreshCw size={12} />
+                <RefreshCw size={11} />
               </button>
             )}
           </div>
 
-          <div className="mt-2 text-sm sm:text-base font-medium text-foreground leading-relaxed">
+          <div className="mt-2.5 text-sm sm:text-base font-normal text-foreground leading-relaxed">
             "{quote.prompt || quote.q}"
           </div>
 
@@ -272,7 +272,7 @@ function Welcome({
             {onCreateReflectionNote && (
               <button
                 onClick={() => onCreateReflectionNote(quote.prompt || quote.q)}
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-secondary hover:bg-muted text-foreground border border-border/60 text-xs font-medium transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-secondary/80 hover:bg-secondary text-foreground border border-border/60 text-xs font-medium transition-colors"
                 data-testid="welcome-reflect-note-btn"
               >
                 <PenTool size={11} />
@@ -283,7 +283,7 @@ function Welcome({
             {onOpenChat && (
               <button
                 onClick={onOpenChat}
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 transition-opacity"
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-foreground text-background text-xs font-medium hover:opacity-90 active:scale-[0.98] transition-all"
                 data-testid="welcome-explore-spark-btn"
               >
                 <Sparkles size={11} />
@@ -296,7 +296,7 @@ function Welcome({
 
       {/* Recent Notes Section */}
       <div className="mt-8 flex items-center justify-between">
-        <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground/80">
           Recent Documents
         </h2>
         <button
@@ -312,7 +312,7 @@ function Welcome({
           <button
             key={n.id}
             onClick={() => onPick(n.id)}
-            className="text-left p-4 rounded-xl border border-border/70 bg-card hover:bg-muted/30 shadow-xs transition-colors group"
+            className="text-left p-4 rounded-2xl border border-border/80 bg-card hover:bg-secondary/30 shadow-ambient transition-all group"
             data-testid={`recent-note-${n.id}`}
           >
             <div className="font-medium text-sm truncate text-foreground">
@@ -321,22 +321,22 @@ function Welcome({
             <div className="text-xs text-muted-foreground line-clamp-2 mt-1 leading-relaxed">
               {n.content?.slice(0, 140) || "Empty note"}
             </div>
-            <div className="mt-3 text-[10px] text-muted-foreground/60 font-mono">
+            <div className="mt-3 text-[10px] text-muted-foreground/50 font-mono">
               {n.updated_at ? new Date(n.updated_at).toLocaleDateString([], { month: "short", day: "numeric" }) : ""}
             </div>
           </button>
         ))}
         <button
           onClick={onCreate}
-          className="p-4 rounded-xl border border-dashed border-border/80 hover:border-foreground/40 hover:bg-muted/20 transition-colors text-left flex flex-col justify-between min-h-[100px]"
+          className="p-4 rounded-2xl border border-dashed border-border/80 hover:border-foreground/30 hover:bg-secondary/20 transition-all text-left flex flex-col justify-between min-h-[100px]"
           data-testid="welcome-new-note-btn"
         >
           <div>
-            <div className="font-semibold text-base text-foreground">+ Begin new note</div>
-            <div className="text-xs text-muted-foreground mt-1">Adaptive modes: Create, Study, Collaborate</div>
+            <div className="font-medium text-sm text-foreground">+ Begin new note</div>
+            <div className="text-xs text-muted-foreground mt-1">Write, study with active recall, or collaborate</div>
           </div>
-          <div className="text-[10px] text-muted-foreground/60 font-mono">
-            Type / for commands & thinking partner
+          <div className="text-[10px] text-muted-foreground/50 font-mono">
+            Type / for commands & thinking companion
           </div>
         </button>
       </div>

@@ -27,17 +27,17 @@ export default function Topbar({
   }[aiSettings.provider] || "Spark";
 
   return (
-    <div className="sticky top-0 z-20 bg-background/80 backdrop-blur-md border-b border-border/60" data-testid="topbar">
-      <div className="h-12 px-4 sm:px-8 flex items-center justify-between gap-3">
+    <header className="sticky top-0 z-20 bg-background/80 backdrop-blur-md border-b border-border/60 select-none" data-testid="topbar">
+      <div className="h-11 px-4 sm:px-8 flex items-center justify-between gap-3">
         {/* Universal Search trigger */}
         <button
           onClick={onSearch}
-          className="inline-flex items-center gap-2 px-3 h-8 w-full max-w-xs rounded-lg border border-border/70 bg-secondary/40 hover:bg-secondary/70 text-xs text-muted-foreground transition-colors"
+          className="inline-flex items-center gap-2 px-2.5 h-7 w-full max-w-[220px] sm:max-w-xs rounded-lg border border-border/60 bg-secondary/50 hover:bg-secondary text-xs text-muted-foreground transition-colors"
           data-testid="topbar-search-btn"
         >
-          <Search size={13} className="opacity-60" />
+          <Search size={12} className="opacity-50" />
           <span className="flex-1 text-left font-normal truncate">Search workspace...</span>
-          <kbd className="text-[10px] font-mono opacity-50 px-1 py-0.2 rounded bg-background border border-border/60">⌘K</kbd>
+          <kbd className="text-[9px] font-mono opacity-40 px-1 py-0.2 rounded bg-background border border-border/50">⌘K</kbd>
         </button>
 
         <div className="flex items-center gap-2">
@@ -69,27 +69,27 @@ export default function Topbar({
             <button
               type="button"
               onClick={onOpenAISettings}
-              className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              className="h-7 w-7 inline-flex items-center justify-center rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
               title={`Engine: ${providerLabel}. Click to configure.`}
               data-testid="topbar-ai-settings-btn"
             >
-              <SlidersHorizontal size={13} />
+              <SlidersHorizontal size={12} />
             </button>
           )}
 
           {/* Spark AI Drawer Trigger (Quiet & Integrated) */}
           <button
             onClick={onToggleChat}
-            className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md bg-secondary hover:bg-muted text-foreground text-xs font-medium transition-colors border border-border/60"
-            title="Open Spark AI (⌘J)"
+            className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-lg bg-secondary/80 hover:bg-secondary text-foreground text-xs font-medium transition-colors border border-border/60"
+            title="Open Spark Companion (⌘J)"
             data-testid="topbar-chat-toggle-btn"
           >
-            <Sparkles size={12} className="text-accent" />
+            <Sparkles size={11} className="text-accent" />
             <span>Spark</span>
-            <kbd className="text-[10px] font-mono opacity-40 ml-0.5">⌘J</kbd>
+            <kbd className="text-[9px] font-mono opacity-40 ml-0.5">⌘J</kbd>
           </button>
         </div>
       </div>
-    </div>
+    </header>
   );
 }
