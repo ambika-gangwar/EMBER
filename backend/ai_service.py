@@ -1872,16 +1872,64 @@ class AIService:
                 "source_context": "Reflective Ember",
             },
         ]
-
         idx = seed_offset % len(reflection_prompts)
-        chosen = reflection_prompts[idx]
+        return reflection_prompts[idx]
+
+    def fallback_pdf_process(self, text: str, filename: str = "Document.pdf", action: str = "full_note") -> Dict[str, Any]:
+        """Extract title, executive synopsis, reformatted structured note, and study sets from raw PDF text."""
+        cleaned_text = re.sub(r"\r\n", "\n", text).strip()
+        lines = [l.strip() for l in cleaned_text.split("\n") if l.strip()]
+        
+        # Determine Title
+        base_name = filename.rsplit(".", 1)[0].replace("_", " ").replace("-", " ").title()
+        title = base_name
+        if lines and len(lines[0]) < 80 and not lines[0].startswith(("#", "-", "*", ">")):
+            title = lines[0].strip("#* ")
+            
+        entities = self._extract_core_entities(cleaned_text)
+        sentences = self._extract_ideas(cleaned_text)
+        
+        # Generate High-Signal Synopsis
+        if len(sentences) >= 2:
+            synopsis = (
+                f"**Executive Synopsis**: This document explores **{title}**, synthesizing critical findings on "
+                f"{', '.join(entities[:3]) if entities else 'core systems and empirical mechanisms'}. "
+                f"Primary thesis: {sentences[0]} Furthermore, {sentences[min(1, len(sentences)-1)]}"
+            )
+        else:
+            synopsis = f"**Executive Synopsis**: Comprehensive synthesis of {title} outlining primary concepts, core mechanisms, and key findings."
+
+        # Generate Structured Cleaned Note
+        structured_paragraphs = []
+        structured_paragraphs.append(f"# {title}\n")
+        structured_paragraphs.append(f"> 📄 *Imported & Structured from `{filename}` by Ember PDF Studio*\n")
+        structured_paragraphs.append(f"## Executive Overview\n{synopsis}\n")
+        
+        structured_paragraphs.append("## Core Insights & Structure\n")
+        chunk_size = max(2, len(sentences) // 3) if len(sentences) >= 3 else 1
+        for i in range(0, min(len(sentences), 9), chunk_size):
+            chunk = sentences[i:i+chunk_size]
+            idx = i // chunk_size
+            sec_title = entities[idx] if idx < len(entities) else f"Concept {idx + 1}"
+            structured_paragraphs.append(f"### {sec_title.capitalize()}\n" + " ".join(chunk) + "\n")
+
+        structured_paragraphs.append("## Key Takeaways & Action Items\n")
+        for s in sentences[:4]:
+            structured_paragraphs.append(f"- **Key Insight**: {s}")
+        structured_paragraphs.append("- [ ] Review empirical assumptions in Study Mode\n- [ ] Drill concepts with active-recall flashcards")
+
+        structured_content = "\n".join(structured_paragraphs)
+        
+        cards = self.fallback_flashcards(cleaned_text, title)
+        quiz = self.fallback_quiz(cleaned_text, title)
+        
         return {
-            "type": chosen["type"],
-            "title": chosen["title"],
-            "category": chosen["title"],
-            "prompt": chosen["prompt"],
-            "source_context": chosen["source_context"],
-            "related_note_titles": [],
+            "title": title,
+            "filename": filename,
+            "synopsis": synopsis,
+            "structured_content": structured_content,
+            "cards": cards,
+            "quiz": quiz,
         }
 
 

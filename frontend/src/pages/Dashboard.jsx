@@ -13,8 +13,9 @@ import SearchOverlay from "@/components/app/SearchOverlay";
 import StudyView from "@/components/app/StudyView";
 import AISettingsModal from "@/components/app/AISettingsModal";
 import KnowledgeGraphModal from "@/components/app/KnowledgeGraphModal";
+import PDFImportModal from "@/components/app/PDFImportModal";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Sparkles, RefreshCw, ArrowRight, PenTool } from "lucide-react";
+import { Plus, Sparkles, RefreshCw, ArrowRight, PenTool, FileText } from "lucide-react";
 
 export default function Dashboard() {
   const [notes, setNotes] = useState([]);
@@ -24,6 +25,7 @@ export default function Dashboard() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [aiModalOpen, setAiModalOpen] = useState(false);
   const [graphModalOpen, setGraphModalOpen] = useState(false);
+  const [pdfModalOpen, setPdfModalOpen] = useState(false);
   const [quote, setQuote] = useState(null);
   const nav = useNavigate();
   const location = useLocation();
@@ -126,83 +128,100 @@ export default function Dashboard() {
           });
           await api.post("/notes/reorder", { note_ids: ids });
         }}
-        loading={loading}
-      />
-
-      <div className="flex-1 flex flex-col min-w-0">
-        <Topbar
-          onSearch={() => setSearchOpen(true)}
-          onToggleChat={() => setChatOpen((v) => !v)}
-          onOpenAISettings={() => setAiModalOpen(true)}
+          loading={loading}
+          onOpenPDF={() => setPdfModalOpen(true)}
         />
 
-        <main className="flex-1 relative">
-          <Routes>
-            <Route
-              index
-              element={
-                notes.length === 0 && !loading ? (
-                  <EmptyState onCreate={createNote} />
-                ) : (
-                  <Welcome
+        <div className="flex-1 flex flex-col min-w-0">
+          <Topbar
+            onSearch={() => setSearchOpen(true)}
+            onToggleChat={() => setChatOpen((v) => !v)}
+            onOpenAISettings={() => setAiModalOpen(true)}
+            onOpenPDF={() => setPdfModalOpen(true)}
+          />
+
+          <main className="flex-1 relative">
+            <Routes>
+              <Route
+                index
+                element={
+                  notes.length === 0 && !loading ? (
+                    <EmptyState onCreate={createNote} />
+                  ) : (
+                    <Welcome
+                      notes={notes}
+                      onPick={(id) => nav(`/app/n/${id}`)}
+                      onCreate={createNote}
+                      onOpenPDF={() => setPdfModalOpen(true)}
+                      quote={quote}
+                      onRefreshQuote={refreshQuote}
+                      onOpenChat={() => setChatOpen(true)}
+                      onCreateReflectionNote={handleCreateReflectionNote}
+                    />
+                  )
+                }
+              />
+              <Route
+                path="n/:id"
+                element={
+                  <EditorRoute
                     notes={notes}
-                    onPick={(id) => nav(`/app/n/${id}`)}
-                    onCreate={createNote}
-                    quote={quote}
-                    onRefreshQuote={refreshQuote}
-                    onOpenChat={() => setChatOpen(true)}
-                    onCreateReflectionNote={handleCreateReflectionNote}
+                    loading={loading}
+                    onChanged={refresh}
+                    onDeleted={refresh}
+                    onOpenAIModal={() => setAiModalOpen(true)}
                   />
-                )
-              }
+                }
+              />
+              <Route path="study/:id" element={<StudyRoute />} />
+            </Routes>
+          </main>
+        </div>
+
+        {/* Ember Thinking Partner Drawer */}
+        <AnimatePresence>
+          {chatOpen && (
+            <ChatDrawer
+              note={activeNote}
+              onInsertText={handleInsertFromChat}
+              onClose={() => setChatOpen(false)}
             />
-            <Route
-              path="n/:id"
-              element={
-                <EditorRoute
-                  notes={notes}
-                  loading={loading}
-                  onChanged={refresh}
-                  onDeleted={refresh}
-                  onOpenAIModal={() => setAiModalOpen(true)}
-                />
-              }
+          )}
+        </AnimatePresence>
+
+        {/* Search Overlay */}
+        <AnimatePresence>
+          {searchOpen && (
+            <SearchOverlay
+              onClose={() => setSearchOpen(false)}
+              onPick={(id) => {
+                setSearchOpen(false);
+                nav(`/app/n/${id}`);
+              }}
             />
-            <Route path="study/:id" element={<StudyRoute />} />
-          </Routes>
-        </main>
+          )}
+        </AnimatePresence>
+
+        {/* AI Settings Modal */}
+        <AISettingsModal open={aiModalOpen} onClose={() => setAiModalOpen(false)} />
+
+        {/* Workspace Knowledge Graph Modal */}
+        <KnowledgeGraphModal open={graphModalOpen} onClose={() => setGraphModalOpen(false)} />
+
+        {/* PDF Intelligence & Importer Modal */}
+        <PDFImportModal
+          open={pdfModalOpen}
+          onClose={() => setPdfModalOpen(false)}
+          onNoteCreated={async (createdNote, isStudy) => {
+            await refresh();
+            if (isStudy) {
+              nav(`/app/study/${createdNote.id}`);
+            } else {
+              nav(`/app/n/${createdNote.id}`);
+            }
+          }}
+        />
       </div>
-
-      {/* Ember Thinking Partner Drawer */}
-      <AnimatePresence>
-        {chatOpen && (
-          <ChatDrawer
-            note={activeNote}
-            onInsertText={handleInsertFromChat}
-            onClose={() => setChatOpen(false)}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Search Overlay */}
-      <AnimatePresence>
-        {searchOpen && (
-          <SearchOverlay
-            onClose={() => setSearchOpen(false)}
-            onPick={(id) => {
-              setSearchOpen(false);
-              nav(`/app/n/${id}`);
-            }}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* AI Settings Modal */}
-      <AISettingsModal open={aiModalOpen} onClose={() => setAiModalOpen(false)} />
-
-      {/* Workspace Knowledge Graph Modal */}
-      <KnowledgeGraphModal open={graphModalOpen} onClose={() => setGraphModalOpen(false)} />
-    </div>
   );
 }
 
@@ -210,6 +229,7 @@ function Welcome({
   notes,
   onPick,
   onCreate,
+  onOpenPDF,
   quote,
   onRefreshQuote,
   onOpenChat,
@@ -299,12 +319,23 @@ function Welcome({
         <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground/80">
           Recent Documents
         </h2>
-        <button
-          onClick={onCreate}
-          className="text-xs font-medium text-foreground hover:underline inline-flex items-center gap-1"
-        >
-          <Plus size={12} /> New Note
-        </button>
+        <div className="flex items-center gap-3">
+          {onOpenPDF && (
+            <button
+              onClick={onOpenPDF}
+              className="text-xs font-medium text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-border/70 hover:bg-muted transition-colors"
+              data-testid="welcome-import-pdf-btn"
+            >
+              <FileText size={12} /> Import PDF
+            </button>
+          )}
+          <button
+            onClick={onCreate}
+            className="text-xs font-medium text-foreground hover:underline inline-flex items-center gap-1"
+          >
+            <Plus size={12} /> New Note
+          </button>
+        </div>
       </div>
 
       <div className="mt-3 grid sm:grid-cols-2 gap-3">

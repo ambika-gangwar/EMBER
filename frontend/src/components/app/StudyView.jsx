@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import {
@@ -22,12 +22,23 @@ import {
   MessageCircleQuestion,
   Send,
   Flame,
+  FileEdit,
+  PanelRightClose,
+  PanelRightOpen,
+  Plus,
+  Save,
 } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { getAIPayloadExtra } from "@/lib/aiSettings";
 
-export default function StudyView({ noteId, embedded = false }) {
+export default function StudyView({
+  noteId,
+  embedded = false,
+  noteTitle = "",
+  noteContent = "",
+  onNoteChange,
+}) {
   const [note, setNote] = useState(null);
   const [cards, setCards] = useState([]);
   const [quiz, setQuiz] = useState([]);
@@ -51,7 +62,7 @@ export default function StudyView({ noteId, embedded = false }) {
   const [answeredCount, setAnsweredCount] = useState(0);
   const [quizFinished, setQuizFinished] = useState(false);
 
-  // Ember Tutor State (Multi-depth & Multi-style)
+  // Ember Tutor State
   const [tutorMessages, setTutorMessages] = useState([
     {
       role: "assistant",
@@ -64,12 +75,27 @@ export default function StudyView({ noteId, embedded = false }) {
   const [tutorLevel, setTutorLevel] = useState("intermediate"); // eli5 | beginner | intermediate | advanced
   const [tutorStyle, setTutorStyle] = useState("socratic"); // socratic | analogies | practice | knowledge_check
 
+  // Live Note Pad Side Pane State
+  const [splitNoteOpen, setSplitNoteOpen] = useState(true);
+  const [localTitle, setLocalTitle] = useState(noteTitle || "Untitled");
+  const [localContent, setLocalContent] = useState(noteContent || "");
+  const [savingNote, setSavingNote] = useState(false);
+  const saveTimerRef = useRef(null);
+
   const nav = useNavigate();
 
   // Load Note and Persisted Study Set
   useEffect(() => {
     if (!noteId) return;
-    api.get(`/notes/${noteId}`).then(({ data }) => setNote(data)).catch(() => {});
+    api
+      .get(`/notes/${noteId}`)
+      .then(({ data }) => {
+        setNote(data);
+        setLocalTitle((prev) => noteTitle || data.title || prev);
+        setLocalContent((prev) => noteContent || data.content || prev);
+      })
+      .catch(() => {});
+
     api
       .get(`/notes/${noteId}/study`)
       .then(({ data }) => {
@@ -77,19 +103,64 @@ export default function StudyView({ noteId, embedded = false }) {
         if (data.quiz && data.quiz.length > 0) setQuiz(data.quiz);
       })
       .catch(() => {});
-  }, [noteId]);
+  }, [noteId]); // eslint-disable-line
+
+  useEffect(() => {
+    if (noteTitle) setLocalTitle(noteTitle);
+    if (noteContent !== undefined) setLocalContent(noteContent);
+  }, [noteTitle, noteContent]);
+
+  // Debounced Live Note Autosave
+  const triggerSave = useCallback(
+    (newTitle, newContent) => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      setSavingNote(true);
+
+      saveTimerRef.current = setTimeout(async () => {
+        try {
+          await api.patch(`/notes/${noteId}`, {
+            title: newTitle,
+            content: newContent,
+          });
+          onNoteChange?.(newTitle, newContent);
+          setSavingNote(false);
+        } catch {
+          setSavingNote(false);
+        }
+      }, 750);
+    },
+    [noteId, onNoteChange]
+  );
+
+  const handleTitleChange = (val) => {
+    setLocalTitle(val);
+    triggerSave(val, localContent);
+  };
+
+  const handleContentChange = (val) => {
+    setLocalContent(val);
+    triggerSave(localTitle, val);
+  };
+
+  const appendToNote = (textToAppend, label = "Insight") => {
+    const updated = localContent ? `${localContent}\n\n${textToAppend}` : textToAppend;
+    setLocalContent(updated);
+    triggerSave(localTitle, updated);
+    toast.success(`Appended ${label} to note pad`);
+  };
 
   const genCards = async () => {
-    if (!note) return;
+    const effectiveTitle = localTitle || note?.title || "";
+    const effectiveContent = localContent || note?.content || "";
     setLoadingCards(true);
     setFlipped(false);
     setCurrentIdx(0);
     try {
       const extra = getAIPayloadExtra();
       const { data } = await api.post("/ai/flashcards", {
-        text: `${note.title || ""}\n\n${note.content || ""}`,
-        note_title: note.title,
-        note_context: note.content,
+        text: `${effectiveTitle}\n\n${effectiveContent}`,
+        note_title: effectiveTitle,
+        note_context: effectiveContent,
         ...extra,
       });
       const newCards = data.cards || [];
@@ -104,7 +175,8 @@ export default function StudyView({ noteId, embedded = false }) {
   };
 
   const genQuiz = async () => {
-    if (!note) return;
+    const effectiveTitle = localTitle || note?.title || "";
+    const effectiveContent = localContent || note?.content || "";
     setLoadingQuiz(true);
     setScore(0);
     setAnsweredCount(0);
@@ -112,9 +184,9 @@ export default function StudyView({ noteId, embedded = false }) {
     try {
       const extra = getAIPayloadExtra();
       const { data } = await api.post("/ai/quiz", {
-        text: `${note.title || ""}\n\n${note.content || ""}`,
-        note_title: note.title,
-        note_context: note.content,
+        text: `${effectiveTitle}\n\n${effectiveContent}`,
+        note_title: effectiveTitle,
+        note_context: effectiveContent,
         ...extra,
       });
       const newQuiz = data.questions || [];
@@ -129,19 +201,20 @@ export default function StudyView({ noteId, embedded = false }) {
   };
 
   const genTakeaways = async () => {
-    if (!note) return;
+    const effectiveTitle = localTitle || note?.title || "";
+    const effectiveContent = localContent || note?.content || "";
     setLoadingSummary(true);
     try {
       const extra = getAIPayloadExtra();
       const [sRes, kRes] = await Promise.all([
         api.post("/ai/summarize", {
-          text: `${note.title || ""}\n\n${note.content || ""}`,
-          note_title: note.title,
+          text: `${effectiveTitle}\n\n${effectiveContent}`,
+          note_title: effectiveTitle,
           ...extra,
         }),
         api.post("/ai/keypoints", {
-          text: `${note.title || ""}\n\n${note.content || ""}`,
-          note_title: note.title,
+          text: `${effectiveTitle}\n\n${effectiveContent}`,
+          note_title: effectiveTitle,
           ...extra,
         }),
       ]);
@@ -170,8 +243,8 @@ export default function StudyView({ noteId, embedded = false }) {
         message: userMsg,
         level: tutorLevel,
         style: tutorStyle,
-        note_title: note?.title || "",
-        note_context: note?.content || "",
+        note_title: localTitle || note?.title || "",
+        note_context: localContent || note?.content || "",
         history: tutorMessages.slice(-6),
         ...extra,
       });
@@ -246,596 +319,623 @@ export default function StudyView({ noteId, embedded = false }) {
 
   const currentCard = cards[currentIdx];
   const progressPercent = cards.length > 0 ? Math.round(((currentIdx + 1) / cards.length) * 100) : 0;
+  const wordCount = localContent ? localContent.trim().split(/\s+/).filter(Boolean).length : 0;
 
   return (
-    <div className={`w-full max-w-3xl mx-auto ${embedded ? "py-4 px-2" : "py-8 px-6 sm:px-8"} space-y-5`}>
+    <div className={`w-full ${splitNoteOpen ? "max-w-7xl" : "max-w-4xl"} mx-auto ${embedded ? "py-4 px-3" : "py-8 px-6 sm:px-8"} transition-all`}>
       {/* Header with Title and Mode Breadcrumb */}
       {!embedded && (
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-4">
           <button
             onClick={() => nav(`/app/n/${noteId}`)}
             className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground font-medium transition-colors"
           >
             <ArrowLeft size={13} /> Back to note
           </button>
+
+          <button
+            onClick={() => setSplitNoteOpen((v) => !v)}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-border/70 bg-card text-xs text-muted-foreground hover:text-foreground transition-all"
+          >
+            {splitNoteOpen ? <PanelRightClose size={13} /> : <PanelRightOpen size={13} />}
+            <span>{splitNoteOpen ? "Hide Note Pad" : "Show Reference Note"}</span>
+          </button>
         </div>
       )}
 
-      {/* Retention & Progress Analytics Strip */}
-      <div className="p-3.5 rounded-xl border border-border/70 bg-secondary/30 flex flex-wrap items-center justify-between gap-3 text-xs">
-        <div className="flex items-center gap-2.5">
-          <GraduationCap size={16} className="text-foreground opacity-80" />
-          <span className="font-medium text-foreground">Study Studio</span>
-          <span className="text-muted-foreground">· {note?.title ? `"${note.title}"` : "Active recall"}</span>
-        </div>
+      {/* Main Split Grid */}
+      <div className={`grid grid-cols-1 ${splitNoteOpen ? "lg:grid-cols-12 gap-6" : "gap-0"}`}>
+        {/* Left / Primary Study Column */}
+        <div className={`${splitNoteOpen ? "lg:col-span-7 xl:col-span-8" : "w-full"} space-y-5`}>
+          {/* Retention & Progress Analytics Strip */}
+          <div className="p-3.5 rounded-xl border border-border/70 bg-secondary/30 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2.5">
+              <GraduationCap size={16} className="text-foreground opacity-80" />
+              <span className="font-medium text-foreground">Study Studio</span>
+              <span className="text-muted-foreground">· {localTitle ? `"${localTitle}"` : "Active recall"}</span>
+            </div>
 
-        {/* Analytics Badges */}
-        <div className="flex items-center gap-2">
-          <div className="px-2.5 py-1 rounded-md border border-border/60 bg-background flex items-center gap-1.5">
-            <Award size={12} className="text-emerald-500" />
-            <span className="font-semibold text-foreground">{cardStats.mastered}</span>
-            <span className="text-muted-foreground text-[11px]">Mastered</span>
-          </div>
-          <div className="px-2.5 py-1 rounded-md border border-border/60 bg-background flex items-center gap-1.5">
-            <span className="font-semibold text-foreground">{cards.length}</span>
-            <span className="text-muted-foreground text-[11px]">Cards</span>
-          </div>
-          <div className="px-2.5 py-1 rounded-md border border-border/60 bg-background flex items-center gap-1.5">
-            <span className="font-semibold text-foreground">
-              {quiz.length > 0 ? `${Math.round((score / quiz.length) * 100)}%` : "0%"}
-            </span>
-            <span className="text-muted-foreground text-[11px]">Quiz</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Segmented Sub-Tab Switcher */}
-      <div className="flex items-center p-0.5 rounded-lg bg-secondary/80 border border-border/60 w-fit">
-        <button
-          onClick={() => setActiveTab("cards")}
-          className={`px-3 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors ${
-            activeTab === "cards"
-              ? "bg-background text-foreground shadow-xs font-medium"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <Layers size={12} /> Cards ({cards.length})
-        </button>
-        <button
-          onClick={() => setActiveTab("quiz")}
-          className={`px-3 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors ${
-            activeTab === "quiz"
-              ? "bg-background text-foreground shadow-xs font-medium"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <HelpCircle size={12} /> Quiz ({quiz.length})
-        </button>
-        <button
-          onClick={() => {
-            setActiveTab("takeaways");
-            if (!summary) genTakeaways();
-          }}
-          className={`px-3 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors ${
-            activeTab === "takeaways"
-              ? "bg-background text-foreground shadow-xs font-medium"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <Lightbulb size={12} /> Key Insights
-        </button>
-        <button
-          onClick={() => setActiveTab("tutor")}
-          className={`px-3 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors ${
-            activeTab === "tutor"
-              ? "bg-background text-foreground shadow-xs font-medium"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-          data-testid="study-tab-tutor"
-        >
-          <Sparkles size={12} className="text-accent" /> Socratic Tutor
-        </button>
-      </div>
-
-      {/* Tab 1: 3D Flashcards Deck */}
-      {activeTab === "cards" && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">
-              {cards.length > 0 ? (
-                <span>
-                  Card <strong className="text-foreground">{currentIdx + 1}</strong> of {cards.length} ·{" "}
-                  <span className="font-mono text-[11px] opacity-75">
-                    [Space] flip · [1-4] grade · [←/→] navigate
-                  </span>
+            {/* Analytics Badges & Toggle */}
+            <div className="flex items-center gap-2">
+              <div className="px-2.5 py-1 rounded-md border border-border/60 bg-background flex items-center gap-1.5">
+                <Award size={12} className="text-emerald-500" />
+                <span className="font-semibold text-foreground">{cardStats.mastered}</span>
+                <span className="text-muted-foreground text-[11px]">Mastered</span>
+              </div>
+              <div className="px-2.5 py-1 rounded-md border border-border/60 bg-background flex items-center gap-1.5">
+                <span className="font-semibold text-foreground">{cards.length}</span>
+                <span className="text-muted-foreground text-[11px]">Cards</span>
+              </div>
+              <div className="px-2.5 py-1 rounded-md border border-border/60 bg-background flex items-center gap-1.5">
+                <span className="font-semibold text-foreground">
+                  {quiz.length > 0 ? `${Math.round((score / quiz.length) * 100)}%` : "0%"}
                 </span>
-              ) : (
-                "No cards generated yet"
-              )}
-            </span>
+                <span className="text-muted-foreground text-[11px]">Quiz</span>
+              </div>
 
-            <div className="flex items-center gap-1.5">
-              {cards.length > 0 && (
+              {embedded && (
                 <button
-                  onClick={() => setDeckMode(deckMode === "deck" ? "grid" : "deck")}
-                  className="h-7 px-2.5 rounded-md border border-border/60 bg-background text-xs font-medium hover:bg-muted transition-colors"
+                  onClick={() => setSplitNoteOpen((v) => !v)}
+                  title={splitNoteOpen ? "Hide Note Reference" : "Show Note Reference & Pad"}
+                  className="p-1 rounded-md border border-border/60 bg-background hover:bg-muted text-muted-foreground hover:text-foreground transition-colors ml-1"
                 >
-                  {deckMode === "deck" ? "Grid" : "Deck"}
+                  {splitNoteOpen ? <PanelRightClose size={13} /> : <PanelRightOpen size={13} />}
                 </button>
               )}
-              <button
-                onClick={genCards}
-                disabled={loadingCards}
-                className="h-7 px-3 rounded-md bg-primary text-primary-foreground text-xs font-medium inline-flex items-center gap-1.5 hover:opacity-90 disabled:opacity-50 transition-opacity"
-              >
-                {loadingCards ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
-                <span>{cards.length === 0 ? "Generate Flashcards" : "Regenerate"}</span>
-              </button>
             </div>
           </div>
 
-          {cards.length === 0 && !loadingCards ? (
-            <div className="p-10 rounded-xl border border-dashed border-border/80 text-center space-y-2.5">
-              <Layers size={28} className="mx-auto opacity-30 text-foreground" />
-              <div className="font-medium text-sm text-foreground">No study cards generated yet</div>
-              <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                Generate high-yield active-recall flashcards directly from this document's core concepts.
-              </p>
-              <button
-                onClick={genCards}
-                className="h-8 px-4 rounded-md bg-primary text-primary-foreground text-xs font-medium inline-flex items-center gap-1.5"
-              >
-                <Sparkles size={12} /> Generate Flashcards
-              </button>
-            </div>
-          ) : deckMode === "deck" && currentCard ? (
-            <div className="space-y-3">
-              {/* Progress bar */}
-              <div className="w-full bg-secondary h-1 rounded-full overflow-hidden">
-                <div
-                  className="bg-primary h-full transition-all duration-200"
-                  style={{ width: `${progressPercent}%` }}
-                />
+          {/* Segmented Sub-Tab Switcher */}
+          <div className="flex items-center p-0.5 rounded-lg bg-secondary/80 border border-border/60 w-fit">
+            <button
+              onClick={() => setActiveTab("cards")}
+              className={`px-3 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors ${
+                activeTab === "cards"
+                  ? "bg-background text-foreground shadow-xs font-medium"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Layers size={12} /> Cards ({cards.length})
+            </button>
+            <button
+              onClick={() => setActiveTab("quiz")}
+              className={`px-3 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors ${
+                activeTab === "quiz"
+                  ? "bg-background text-foreground shadow-xs font-medium"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <HelpCircle size={12} /> Quiz ({quiz.length})
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab("takeaways");
+                if (!summary) genTakeaways();
+              }}
+              className={`px-3 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors ${
+                activeTab === "takeaways"
+                  ? "bg-background text-foreground shadow-xs font-medium"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Lightbulb size={12} /> Key Insights
+            </button>
+            <button
+              onClick={() => setActiveTab("tutor")}
+              className={`px-3 py-1 rounded-md text-xs font-medium flex items-center gap-1.5 transition-colors ${
+                activeTab === "tutor"
+                  ? "bg-background text-foreground shadow-xs font-medium"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              data-testid="study-tab-tutor"
+            >
+              <Sparkles size={12} className="text-accent" /> Socratic Tutor
+            </button>
+          </div>
+
+          {/* Tab 1: 3D Flashcards Deck */}
+          {activeTab === "cards" && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground font-mono">
+                    {cards.length > 0 ? `${currentIdx + 1} / ${cards.length}` : "0 cards"}
+                  </span>
+                  {cards.length > 0 && (
+                    <div className="w-20 h-1.5 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-primary transition-all duration-300"
+                        style={{ width: `${progressPercent}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {cards.length > 0 && (
+                    <button
+                      onClick={() => setDeckMode((m) => (m === "deck" ? "grid" : "deck"))}
+                      className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded-md border border-border/50 hover:bg-muted transition-colors"
+                    >
+                      {deckMode === "deck" ? "Grid view" : "Deck view"}
+                    </button>
+                  )}
+                  <button
+                    onClick={genCards}
+                    disabled={loadingCards}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-secondary hover:bg-muted text-foreground transition-all disabled:opacity-50"
+                  >
+                    {loadingCards ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                    <span>{cards.length === 0 ? "Generate Flashcards" : "Regenerate"}</span>
+                  </button>
+                </div>
               </div>
 
-              {/* 3D Flip Card Container */}
-              <div
-                style={{ perspective: 1200 }}
-                className="min-h-[260px] sm:min-h-[300px] w-full cursor-pointer select-none"
-                onClick={() => setFlipped((f) => !f)}
-              >
-                <motion.div
-                  animate={{ rotateY: flipped ? 180 : 0 }}
-                  transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
-                  style={{ transformStyle: "preserve-3d" }}
-                  className="relative w-full h-full min-h-[260px] sm:min-h-[300px] rounded-xl border border-border/80 shadow-xs bg-card p-6 sm:p-8 flex flex-col justify-between"
-                >
-                  {/* Card Category & Flip Indicator */}
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span className="font-medium text-foreground">
-                      {currentCard.category || "Active Recall"}
-                    </span>
-                    <span className="text-[10px] font-mono opacity-50">Click or [Space] to flip</span>
+              {cards.length === 0 ? (
+                <div className="p-12 text-center border rounded-2xl bg-card/50 space-y-3">
+                  <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center mx-auto text-muted-foreground">
+                    <Layers size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-foreground">No flashcards yet</h3>
+                    <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+                      Generate high-yield active-recall cards directly from your note's concepts, definitions, and mechanics.
+                    </p>
+                  </div>
+                  <button
+                    onClick={genCards}
+                    disabled={loadingCards}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
+                  >
+                    {loadingCards ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                    <span>Generate Flashcard Deck</span>
+                  </button>
+                </div>
+              ) : deckMode === "grid" ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {cards.map((c, i) => (
+                    <FlashcardItem
+                      key={i}
+                      q={c.q}
+                      a={c.a}
+                      idx={i}
+                      category={c.category}
+                      onAppend={() => appendToNote(`- **${c.q}**: ${c.a}`, `Card #${i + 1}`)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Active 3D Card Flipper */}
+                  <div
+                    onClick={() => setFlipped((f) => !f)}
+                    className="cursor-pointer min-h-[260px] sm:min-h-[300px] p-8 rounded-2xl border border-border bg-card shadow-sm hover:shadow-md transition-all flex flex-col justify-between relative group select-none"
+                  >
+                    <div className="flex items-center justify-between text-[11px] uppercase tracking-wider font-semibold text-muted-foreground">
+                      <span className="flex items-center gap-1.5">
+                        <span className={`w-2 h-2 rounded-full ${flipped ? "bg-emerald-500" : "bg-primary"}`} />
+                        {flipped ? "Answer" : "Question"}
+                      </span>
+                      {currentCard?.category && (
+                        <span className="text-primary font-normal">{currentCard.category}</span>
+                      )}
+                    </div>
+
+                    <div className="py-6 flex items-center justify-center text-center">
+                      <AnimatePresence mode="wait">
+                        <motion.div
+                          key={flipped ? `a-${currentIdx}` : `q-${currentIdx}`}
+                          initial={{ opacity: 0, y: 6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -6 }}
+                          transition={{ duration: 0.15 }}
+                          className="text-base sm:text-lg font-medium leading-relaxed text-foreground max-w-xl"
+                        >
+                          {flipped ? currentCard?.a : currentCard?.q}
+                        </motion.div>
+                      </AnimatePresence>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs text-muted-foreground border-t border-border/50 pt-3">
+                      <span className="text-[11px]">Click or press Space to flip</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (currentCard) {
+                            appendToNote(
+                              `- **Q**: ${currentCard.q}\n  - **A**: ${currentCard.a}`,
+                              `Card #${currentIdx + 1}`
+                            );
+                          }
+                        }}
+                        className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-primary transition-colors"
+                        title="Append this Q&A to the reference note pad"
+                      >
+                        <Plus size={12} /> Add to note pad
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Question (Front) or Answer (Back) */}
-                  <div className="my-auto py-4">
-                    {!flipped ? (
-                      <div>
-                        <span className="text-[10px] uppercase font-semibold tracking-wider text-muted-foreground block mb-1.5">
-                          Prompt
-                        </span>
-                        <div className="text-base sm:text-xl font-medium leading-relaxed text-foreground">
-                          {currentCard.q}
-                        </div>
+                  {/* Rating & Navigation Bar */}
+                  <div className="flex items-center justify-between gap-3">
+                    <button
+                      onClick={prevCard}
+                      className="p-2 rounded-xl border border-border hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                      title="Previous (Left arrow)"
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+
+                    {flipped ? (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => gradeCard("1")}
+                          className="px-3 py-1.5 rounded-lg border border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-400 text-xs font-medium hover:bg-rose-500/20 transition-colors"
+                        >
+                          Again <span className="opacity-60 text-[10px]">(1)</span>
+                        </button>
+                        <button
+                          onClick={() => gradeCard("2")}
+                          className="px-3 py-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs font-medium hover:bg-amber-500/20 transition-colors"
+                        >
+                          Hard <span className="opacity-60 text-[10px]">(2)</span>
+                        </button>
+                        <button
+                          onClick={() => gradeCard("3")}
+                          className="px-3 py-1.5 rounded-lg border border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-400 text-xs font-medium hover:bg-sky-500/20 transition-colors"
+                        >
+                          Good <span className="opacity-60 text-[10px]">(3)</span>
+                        </button>
+                        <button
+                          onClick={() => gradeCard("4")}
+                          className="px-3 py-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-xs font-medium hover:bg-emerald-500/20 transition-colors"
+                        >
+                          Easy <span className="opacity-60 text-[10px]">(4)</span>
+                        </button>
                       </div>
                     ) : (
-                      <div style={{ transform: "rotateY(180deg)" }}>
-                        <span className="text-[10px] uppercase font-semibold tracking-wider text-accent block mb-1.5">
-                          Answer
-                        </span>
-                        <div className="text-sm sm:text-base font-normal leading-relaxed text-foreground">
-                          {currentCard.a}
-                        </div>
-                      </div>
+                      <button
+                        onClick={() => setFlipped(true)}
+                        className="px-4 py-1.5 rounded-lg text-xs font-medium bg-secondary hover:bg-muted text-foreground transition-colors"
+                      >
+                        Show Answer <span className="opacity-60 text-[10px]">(Space)</span>
+                      </button>
                     )}
-                  </div>
 
-                  {/* Card Navigation Footer */}
-                  <div className="flex items-center justify-between border-t border-border/40 pt-3 text-xs text-muted-foreground">
-                    <span className="font-mono text-[11px]">
-                      #{currentIdx + 1} of {cards.length}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          prevCard();
-                        }}
-                        className="h-7 w-7 rounded-md border border-border/60 bg-background hover:bg-muted flex items-center justify-center transition-colors"
-                      >
-                        <ChevronLeft size={13} />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          nextCard();
-                        }}
-                        className="h-7 w-7 rounded-md border border-border/60 bg-background hover:bg-muted flex items-center justify-center transition-colors"
-                      >
-                        <ChevronRight size={13} />
-                      </button>
-                    </div>
+                    <button
+                      onClick={nextCard}
+                      className="p-2 rounded-xl border border-border hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                      title="Next (Right arrow)"
+                    >
+                      <ChevronRight size={16} />
+                    </button>
                   </div>
-                </motion.div>
-              </div>
-
-              {/* Spaced Repetition Grading Controls */}
-              {flipped && (
-                <motion.div
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="grid grid-cols-4 gap-2 pt-2 select-none"
-                >
-                  <button
-                    onClick={() => gradeCard("1")}
-                    className="p-2.5 rounded-xl border border-border/80 bg-card hover:bg-muted/60 text-foreground text-xs font-medium transition-all text-center shadow-ambient"
-                  >
-                    <div className="flex items-center justify-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                      <span>Again</span>
-                    </div>
-                    <div className="text-[10px] text-muted-foreground/60 font-mono mt-0.5">1</div>
-                  </button>
-                  <button
-                    onClick={() => gradeCard("2")}
-                    className="p-2.5 rounded-xl border border-border/80 bg-card hover:bg-muted/60 text-foreground text-xs font-medium transition-all text-center shadow-ambient"
-                  >
-                    <div className="flex items-center justify-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                      <span>Hard</span>
-                    </div>
-                    <div className="text-[10px] text-muted-foreground/60 font-mono mt-0.5">2</div>
-                  </button>
-                  <button
-                    onClick={() => gradeCard("3")}
-                    className="p-2.5 rounded-xl border border-border/80 bg-card hover:bg-muted/60 text-foreground text-xs font-medium transition-all text-center shadow-ambient"
-                  >
-                    <div className="flex items-center justify-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                      <span>Good</span>
-                    </div>
-                    <div className="text-[10px] text-muted-foreground/60 font-mono mt-0.5">3</div>
-                  </button>
-                  <button
-                    onClick={() => gradeCard("4")}
-                    className="p-2.5 rounded-xl border border-border/80 bg-card hover:bg-muted/60 text-foreground text-xs font-medium transition-all text-center shadow-ambient"
-                  >
-                    <div className="flex items-center justify-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                      <span>Easy</span>
-                    </div>
-                    <div className="text-[10px] text-muted-foreground/60 font-mono mt-0.5">4</div>
-                  </button>
-                </motion.div>
+                </div>
               )}
             </div>
-          ) : (
-            <div className="grid sm:grid-cols-2 gap-3">
-              {cards.map((c, i) => (
-                <FlashcardItem key={i} q={c.q} a={c.a} idx={i} category={c.category} />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Tab 2: Practice Quiz */}
-      {activeTab === "quiz" && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">
-              {quiz.length > 0 ? `${quiz.length} multiple choice conceptual questions` : "No quiz yet"}
-            </span>
-            <button
-              onClick={genQuiz}
-              disabled={loadingQuiz}
-              className="h-8 px-3.5 rounded-full bg-foreground text-background text-xs font-medium inline-flex items-center gap-1.5 hover:opacity-90 disabled:opacity-50 transition-opacity"
-            >
-              {loadingQuiz ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-              <span>{quiz.length === 0 ? "Generate Quiz" : "Regenerate"}</span>
-            </button>
-          </div>
-
-          {quizFinished && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.96 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="p-6 rounded-3xl border bg-primary/5 border-primary/20 flex flex-col sm:flex-row items-center justify-between gap-4"
-            >
-              <div>
-                <div className="flex items-center gap-2">
-                  <Award size={20} className="text-amber-500" />
-                  <span className="font-semibold text-lg text-foreground" style={{ fontFamily: "Outfit" }}>
-                    Quiz Completed!
-                  </span>
-                </div>
-                <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                  You scored <strong className="text-foreground">{score}</strong> out of{" "}
-                  <strong>{quiz.length}</strong> ({Math.round((score / quiz.length) * 100)}%).
-                </p>
-              </div>
-
-              <button
-                onClick={genQuiz}
-                className="h-8 px-4 rounded-full bg-foreground text-background text-xs font-medium hover:opacity-90 transition-all inline-flex items-center gap-1.5"
-              >
-                <RotateCcw size={12} /> Retry Quiz
-              </button>
-            </motion.div>
           )}
 
-          <div className="space-y-4">
-            {quiz.map((q, i) => (
-              <QuizItem key={i} item={q} idx={i} onAnswer={handleQuizAnswer} />
-            ))}
-          </div>
-        </div>
-      )}
+          {/* Tab 2: Interactive Quiz */}
+          {activeTab === "quiz" && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground font-mono">
+                  {quiz.length > 0 ? `${answeredCount} / ${quiz.length} answered` : "0 questions"}
+                </span>
 
-      {/* Tab 3: Key Takeaways */}
-      {activeTab === "takeaways" && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">Executive synthesis and essential realization bullets</span>
-            <button
-              onClick={genTakeaways}
-              disabled={loadingSummary}
-              className="h-8 px-3.5 rounded-full bg-foreground text-background text-xs font-medium inline-flex items-center gap-1.5 hover:opacity-90 disabled:opacity-50 transition-opacity"
-            >
-              {loadingSummary ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-              <span>{summary ? "Refresh Takeaways" : "Distill Takeaways"}</span>
-            </button>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="p-6 rounded-3xl border bg-card shadow-ambient space-y-3">
-              <div className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-2">
-                <BookOpen size={14} /> Executive Summary
-              </div>
-              <div className="prose-note text-sm leading-relaxed whitespace-pre-wrap">
-                {summary || "Click Distill Takeaways to synthesize this note into an executive summary."}
-              </div>
-            </div>
-
-            <div className="p-6 rounded-3xl border bg-card shadow-ambient space-y-3">
-              <div className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-2">
-                <Lightbulb size={14} /> Core Insights
-              </div>
-              <div className="prose-note text-sm leading-relaxed whitespace-pre-wrap">
-                {keypoints || "Click Distill Takeaways to extract self-contained mental models."}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Tab 4: Multi-Depth Ember Tutor */}
-      {activeTab === "tutor" && (
-        <div className="rounded-3xl border bg-card shadow-ambient flex flex-col h-[580px] overflow-hidden">
-          {/* Header & Controls */}
-          <div className="p-4 border-b bg-muted/30 flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="h-8 w-8 rounded-xl overflow-hidden border border-violet-500/30 flex items-center justify-center shrink-0 shadow-xs">
-                  <img src="/logo.png" alt="Ember" className="w-full h-full object-cover" />
-                </div>
-                <div>
-                  <div className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                    Ember Tutor
-                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
-                      Factual & Concrete
-                    </span>
-                  </div>
-                  <div className="text-[10px] text-muted-foreground">
-                    Understands this note and general concepts (e.g. recursion, algorithms)
-                  </div>
-                </div>
-              </div>
-              <button
-                onClick={() =>
-                  setTutorMessages([
-                    {
-                      role: "assistant",
-                      content:
-                        "Session reset. What concept would you like to explore? Feel free to ask about this note or any general topic.",
-                    },
-                  ])
-                }
-                className="text-xs text-muted-foreground hover:text-foreground font-medium"
-                data-testid="tutor-reset-btn"
-              >
-                Reset
-              </button>
-            </div>
-
-            {/* Depth & Style Selectors */}
-            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/40 text-[11px]">
-              <div className="flex items-center gap-1">
-                <span className="text-muted-foreground mr-1">Depth:</span>
-                {[
-                  { key: "eli5", label: "ELI5" },
-                  { key: "beginner", label: "Beginner" },
-                  { key: "intermediate", label: "Intermediate" },
-                  { key: "advanced", label: "Advanced" },
-                ].map((d) => (
-                  <button
-                    key={d.key}
-                    type="button"
-                    onClick={() => setTutorLevel(d.key)}
-                    className={`px-2 py-0.5 rounded-md font-medium transition-colors ${
-                      tutorLevel === d.key
-                        ? "bg-primary text-primary-foreground font-semibold shadow-xs"
-                        : "bg-muted hover:bg-muted/80 text-muted-foreground"
-                    }`}
-                    data-testid={`tutor-depth-${d.key}`}
-                  >
-                    {d.label}
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex items-center gap-1">
-                <span className="text-muted-foreground mr-1">Style:</span>
-                {[
-                  { key: "socratic", label: "Socratic" },
-                  { key: "analogies", label: "Analogies" },
-                  { key: "practice", label: "Practice Drill" },
-                  { key: "knowledge_check", label: "Knowledge Check" },
-                ].map((s) => (
-                  <button
-                    key={s.key}
-                    type="button"
-                    onClick={() => setTutorStyle(s.key)}
-                    className={`px-2 py-0.5 rounded-md font-medium transition-colors ${
-                      tutorStyle === s.key
-                        ? "bg-foreground text-background font-semibold"
-                        : "bg-muted hover:bg-muted/80 text-muted-foreground"
-                    }`}
-                    data-testid={`tutor-style-${s.key}`}
-                  >
-                    {s.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
-            {tutorMessages.map((m, i) => (
-              <div
-                key={i}
-                className={`flex gap-2.5 max-w-[88%] ${m.role === "user" ? "ml-auto flex-row-reverse" : "mr-auto"}`}
-              >
-                <div
-                  className={`h-7 w-7 rounded-xl flex items-center justify-center text-xs shrink-0 font-bold overflow-hidden ${
-                    m.role === "user"
-                      ? "bg-foreground text-background"
-                      : "border border-amber-500/30"
-                  }`}
+                <button
+                  onClick={genQuiz}
+                  disabled={loadingQuiz}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-secondary hover:bg-muted text-foreground transition-all disabled:opacity-50"
                 >
-                  {m.role === "user" ? (
-                    "Y"
-                  ) : (
-                    <img src="/logo.png" alt="Ember" className="w-full h-full object-cover" />
-                  )}
+                  {loadingQuiz ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                  <span>{quiz.length === 0 ? "Generate Quiz" : "Regenerate"}</span>
+                </button>
+              </div>
+
+              {quiz.length === 0 ? (
+                <div className="p-12 text-center border rounded-2xl bg-card/50 space-y-3">
+                  <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center mx-auto text-muted-foreground">
+                    <HelpCircle size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-foreground">No quiz generated yet</h3>
+                    <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+                      Test your comprehension with 5 multiple-choice questions testing core concepts and edge cases.
+                    </p>
+                  </div>
+                  <button
+                    onClick={genQuiz}
+                    disabled={loadingQuiz}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
+                  >
+                    {loadingQuiz ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                    <span>Generate Quiz</span>
+                  </button>
                 </div>
-                <div
-                  className={`p-3.5 rounded-2xl text-xs leading-relaxed ${
-                    m.role === "user"
-                      ? "bg-foreground text-background"
-                      : "bg-muted/70 text-foreground border border-border/60"
-                  }`}
+              ) : (
+                <div className="space-y-4">
+                  {quiz.map((q, idx) => (
+                    <QuizItem
+                      key={idx}
+                      item={q}
+                      idx={idx}
+                      onAnswer={handleQuizAnswer}
+                      onAppend={(text) => appendToNote(text, `Quiz #${idx + 1} Takeaway`)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Tab 3: Key Takeaways & Executive Summary */}
+          {activeTab === "takeaways" && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground">Distilled Document Intelligence</span>
+                <button
+                  onClick={genTakeaways}
+                  disabled={loadingSummary}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-secondary hover:bg-muted text-foreground transition-all disabled:opacity-50"
                 >
-                  {m.mode && (
-                    <div className="text-[10px] font-semibold uppercase tracking-wider text-primary mb-1">
-                      {m.mode === "general" ? "General Concept" : "Note-Grounded"} · {m.level} · {m.style}
+                  {loadingSummary ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                  <span>Regenerate Takeaways</span>
+                </button>
+              </div>
+
+              {loadingSummary ? (
+                <div className="p-12 flex flex-col items-center justify-center text-center space-y-2">
+                  <Loader2 size={24} className="animate-spin text-primary" />
+                  <p className="text-xs text-muted-foreground">Distilling executive takeaways and realization points...</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {summary && (
+                    <div className="p-5 rounded-2xl border border-border bg-card space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider">
+                          Executive Synthesis
+                        </h4>
+                        <button
+                          onClick={() => appendToNote(`### Executive Summary\n${summary}`, "Executive Summary")}
+                          className="text-[11px] text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
+                        >
+                          <Plus size={11} /> Add to note pad
+                        </button>
+                      </div>
+                      <p className="text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">{summary}</p>
                     </div>
                   )}
-                  <div className="whitespace-pre-wrap">{m.content}</div>
+
+                  {keypoints && (
+                    <div className="p-5 rounded-2xl border border-border bg-card space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider">
+                          Essential Insights
+                        </h4>
+                        <button
+                          onClick={() => appendToNote(`### Essential Insights\n${keypoints}`, "Key Insights")}
+                          className="text-[11px] text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
+                        >
+                          <Plus size={11} /> Add to note pad
+                        </button>
+                      </div>
+                      <div className="text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap font-sans">
+                        {keypoints}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Tab 4: Socratic Tutor */}
+          {activeTab === "tutor" && (
+            <div className="space-y-4">
+              {/* Tutor Depth & Style Controls */}
+              <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl border border-border/60 bg-muted/20 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">Depth:</span>
+                  <select
+                    value={tutorLevel}
+                    onChange={(e) => setTutorLevel(e.target.value)}
+                    className="bg-background border border-border rounded-md px-2 py-1 text-xs outline-none text-foreground"
+                  >
+                    <option value="eli5">ELI5 (Simple Analogies)</option>
+                    <option value="beginner">Beginner</option>
+                    <option value="intermediate">Intermediate (Standard)</option>
+                    <option value="advanced">Advanced (Rigorous)</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">Style:</span>
+                  <select
+                    value={tutorStyle}
+                    onChange={(e) => setTutorStyle(e.target.value)}
+                    className="bg-background border border-border rounded-md px-2 py-1 text-xs outline-none text-foreground"
+                  >
+                    <option value="socratic">Socratic Questioning</option>
+                    <option value="analogies">Vivid Real-World Analogies</option>
+                    <option value="practice">Active Practice Drill</option>
+                    <option value="knowledge_check">Direct Knowledge Check</option>
+                  </select>
                 </div>
               </div>
-            ))}
-            {tutorBusy && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground italic pl-10">
-                <Loader2 size={12} className="animate-spin" /> Ember is formulating explanation...
+
+              {/* Chat Thread */}
+              <div className="space-y-3 min-h-[280px] max-h-[420px] overflow-y-auto p-4 rounded-2xl border border-border bg-card/60">
+                {tutorMessages.map((msg, i) => (
+                  <div
+                    key={i}
+                    className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                  >
+                    <div
+                      className={`max-w-[88%] p-3.5 rounded-2xl text-xs sm:text-sm leading-relaxed ${
+                        msg.role === "user"
+                          ? "bg-primary text-primary-foreground font-medium rounded-br-xs"
+                          : "bg-muted/70 text-foreground border border-border/60 rounded-bl-xs"
+                      }`}
+                    >
+                      <p className="whitespace-pre-wrap">{msg.content}</p>
+                      {msg.role === "assistant" && i > 0 && (
+                        <div className="mt-2 pt-2 border-t border-border/40 flex justify-end">
+                          <button
+                            onClick={() => appendToNote(`> **Tutor Insight**: ${msg.content}`, "Tutor Insight")}
+                            className="text-[10px] text-muted-foreground hover:text-primary flex items-center gap-1"
+                          >
+                            <Plus size={10} /> Add to note pad
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {tutorBusy && (
+                  <div className="flex justify-start">
+                    <div className="p-3 rounded-2xl bg-muted/70 text-xs text-muted-foreground flex items-center gap-2">
+                      <Loader2 size={12} className="animate-spin text-primary" />
+                      <span>Ember Tutor is thinking...</span>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
 
-          {/* Quick Prompts */}
-          <div className="px-4 py-2 bg-muted/20 border-t flex items-center gap-2 overflow-x-auto text-[11px] text-muted-foreground">
-            <span className="shrink-0 font-medium">Quick:</span>
-            {[
-              "Explain like I'm 5",
-              "Give an intuitive analogy",
-              "Give me a practice problem",
-              "What are the failure modes?",
-            ].map((p, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => {
-                  setTutorInput(p);
-                }}
-                className="shrink-0 px-2 py-0.5 rounded-full border bg-background hover:bg-muted hover:text-foreground transition-colors"
-              >
-                {p}
-              </button>
-            ))}
-          </div>
-
-          {/* Input Form */}
-          <form onSubmit={handleTutorSubmit} className="p-3 border-t flex items-center gap-2 bg-background">
-            <input
-              type="text"
-              value={tutorInput}
-              onChange={(e) => setTutorInput(e.target.value)}
-              placeholder="Ask about this note or any concept (e.g., 'What is recursion?')..."
-              className="flex-1 h-9 px-3 rounded-xl border bg-card text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-              data-testid="tutor-input"
-            />
-            <button
-              type="submit"
-              disabled={tutorBusy || !tutorInput.trim()}
-              className="h-9 px-4 rounded-xl bg-foreground text-background text-xs font-semibold hover:opacity-90 disabled:opacity-40 transition-opacity flex items-center gap-1.5"
-              data-testid="tutor-submit-btn"
-            >
-              <Send size={12} />
-              <span>Ask Ember</span>
-            </button>
-          </form>
+              {/* Tutor Input Form */}
+              <form onSubmit={handleTutorSubmit} className="flex items-center gap-2">
+                <input
+                  value={tutorInput}
+                  onChange={(e) => setTutorInput(e.target.value)}
+                  placeholder="Ask Ember Tutor to test your assumptions or explain a mechanism..."
+                  className="flex-1 px-4 py-2 rounded-xl border border-border bg-card text-xs sm:text-sm outline-none placeholder:text-muted-foreground/40 focus:border-primary/60 transition-colors"
+                />
+                <button
+                  type="submit"
+                  disabled={!tutorInput.trim() || tutorBusy}
+                  className="px-4 py-2 rounded-xl bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-40 transition-all text-xs font-medium flex items-center gap-1.5"
+                >
+                  <Send size={13} />
+                  <span>Send</span>
+                </button>
+              </form>
+            </div>
+          )}
         </div>
-      )}
+
+        {/* Right Column: Live Reference Note & Editor Pane */}
+        {splitNoteOpen && (
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.2 }}
+            className="lg:col-span-5 xl:col-span-4 mt-6 lg:mt-0 flex flex-col border border-border/80 rounded-2xl bg-card shadow-sm overflow-hidden min-h-[500px]"
+          >
+            {/* Note Header Strip */}
+            <div className="px-4 py-3 border-b border-border/60 bg-muted/20 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-medium text-foreground">
+                <FileEdit size={14} className="text-primary" />
+                <span>Reference & Live Note Pad</span>
+              </div>
+
+              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                {savingNote ? (
+                  <span className="flex items-center gap-1 text-amber-500">
+                    <Loader2 size={10} className="animate-spin" /> Saving...
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-emerald-500">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Saved
+                  </span>
+                )}
+                <span>·</span>
+                <span>{wordCount} words</span>
+              </div>
+            </div>
+
+            {/* Note Title Input */}
+            <div className="p-4 border-b border-border/40">
+              <input
+                value={localTitle}
+                onChange={(e) => handleTitleChange(e.target.value)}
+                placeholder="Document Title..."
+                className="w-full text-base font-semibold text-foreground bg-transparent border-0 outline-none placeholder:text-muted-foreground/30"
+              />
+            </div>
+
+            {/* Note Content Textarea */}
+            <div className="p-4 flex-1 flex flex-col">
+              <textarea
+                value={localContent}
+                onChange={(e) => handleContentChange(e.target.value)}
+                placeholder="Write notes, reflections, or study points here in real time..."
+                className="w-full flex-1 min-h-[360px] resize-none bg-transparent border-0 outline-none text-xs sm:text-sm leading-relaxed text-foreground font-sans placeholder:text-muted-foreground/30"
+              />
+            </div>
+
+            {/* Note Footer Tip */}
+            <div className="px-4 py-2.5 bg-muted/10 border-t border-border/50 text-[11px] text-muted-foreground flex items-center justify-between">
+              <span>Changes autosave to note</span>
+              <button
+                onClick={() => nav(`/app/n/${noteId}`)}
+                className="text-primary hover:underline font-medium"
+              >
+                Open in Full Editor →
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </div>
     </div>
   );
 }
 
-function FlashcardItem({ q, a, idx, category }) {
+function FlashcardItem({ q, a, idx, category, onAppend }) {
   const [flipped, setFlipped] = useState(false);
   return (
-    <button
-      onClick={() => setFlipped((f) => !f)}
-      className="text-left p-6 rounded-3xl border bg-card hover:-translate-y-0.5 hover:shadow-ambient transition-all min-h-[180px] flex flex-col justify-between"
-      data-testid={`flashcard-${idx}`}
-    >
-      <div>
-        <div className="flex items-center justify-between text-[10px] uppercase tracking-wider font-semibold text-muted-foreground mb-3">
+    <div className="p-5 rounded-2xl border border-border bg-card hover:-translate-y-0.5 hover:shadow-sm transition-all min-h-[170px] flex flex-col justify-between group">
+      <div onClick={() => setFlipped((f) => !f)} className="cursor-pointer flex-1">
+        <div className="flex items-center justify-between text-[10px] uppercase tracking-wider font-semibold text-muted-foreground mb-2.5">
           <span>{flipped ? "Answer" : "Question"}</span>
           {category && <span className="text-primary font-normal">{category}</span>}
         </div>
         <AnimatePresence mode="wait">
           <motion.div
             key={flipped ? "a" : "q"}
-            initial={{ opacity: 0, y: 4 }}
+            initial={{ opacity: 0, y: 3 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            className="text-sm leading-relaxed font-medium text-foreground"
+            exit={{ opacity: 0, y: -3 }}
+            className="text-xs sm:text-sm leading-relaxed font-medium text-foreground"
           >
             {flipped ? a : q}
           </motion.div>
         </AnimatePresence>
       </div>
-      <div className="mt-4 text-[11px] text-muted-foreground/70 flex items-center justify-between border-t pt-2">
-        <span>Click to flip</span>
-        <span className="font-mono">#{idx + 1}</span>
+
+      <div className="mt-3 text-[11px] text-muted-foreground/70 flex items-center justify-between border-t border-border/40 pt-2">
+        <span onClick={() => setFlipped((f) => !f)} className="cursor-pointer hover:text-foreground">
+          #{idx + 1} · Click to flip
+        </span>
+        {onAppend && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onAppend();
+            }}
+            className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-primary transition-opacity flex items-center gap-1 text-[11px]"
+            title="Append to note pad"
+          >
+            <Plus size={11} /> Add to note
+          </button>
+        )}
       </div>
-    </button>
+    </div>
   );
 }
 
-function QuizItem({ item, idx, onAnswer }) {
+function QuizItem({ item, idx, onAnswer, onAppend }) {
   const [picked, setPicked] = useState(null);
   const correct = item.answer ?? 0;
 
@@ -846,12 +946,27 @@ function QuizItem({ item, idx, onAnswer }) {
   };
 
   return (
-    <div className="p-6 rounded-3xl border bg-card shadow-sm" data-testid={`quiz-item-${idx}`}>
-      <div className="font-semibold text-sm sm:text-base leading-snug">
-        {idx + 1}. {item.q}
+    <div className="p-5 rounded-2xl border border-border bg-card shadow-xs" data-testid={`quiz-item-${idx}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="font-semibold text-xs sm:text-sm leading-snug text-foreground">
+          {idx + 1}. {item.q}
+        </div>
+        {onAppend && picked !== null && (
+          <button
+            onClick={() =>
+              onAppend(
+                `- **Q**: ${item.q}\n  - **Correct**: ${item.options?.[correct]}\n  - **Takeaway**: ${item.explanation || ""}`
+              )
+            }
+            className="text-[11px] text-muted-foreground hover:text-primary shrink-0 flex items-center gap-1"
+            title="Add quiz takeaway to note pad"
+          >
+            <Plus size={11} /> Add to note
+          </button>
+        )}
       </div>
 
-      <div className="mt-4 grid sm:grid-cols-2 gap-2.5">
+      <div className="mt-3.5 grid sm:grid-cols-2 gap-2">
         {item.options?.map((opt, i) => {
           const isPicked = picked === i;
           const isRight = picked !== null && i === correct;
@@ -862,7 +977,7 @@ function QuizItem({ item, idx, onAnswer }) {
               key={i}
               onClick={() => handlePick(i)}
               disabled={picked !== null}
-              className={`text-left px-4 py-3 rounded-2xl border text-xs sm:text-sm transition-all ${
+              className={`text-left px-3.5 py-2.5 rounded-xl border text-xs transition-all ${
                 isRight
                   ? "border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-medium"
                   : isWrong
@@ -873,14 +988,14 @@ function QuizItem({ item, idx, onAnswer }) {
               }`}
               data-testid={`quiz-option-${idx}-${i}`}
             >
-              <div className="flex items-start gap-2.5">
+              <div className="flex items-start gap-2">
                 <span className="mt-0.5 shrink-0">
                   {isRight ? (
-                    <Check size={13} className="text-emerald-500" strokeWidth={3} />
+                    <Check size={12} className="text-emerald-500" strokeWidth={3} />
                   ) : isWrong ? (
-                    <XIcon size={13} className="text-rose-500" strokeWidth={3} />
+                    <XIcon size={12} className="text-rose-500" strokeWidth={3} />
                   ) : (
-                    <span className="text-xs font-mono text-muted-foreground">
+                    <span className="text-[11px] font-mono text-muted-foreground">
                       {String.fromCharCode(65 + i)}.
                     </span>
                   )}
@@ -896,7 +1011,7 @@ function QuizItem({ item, idx, onAnswer }) {
         <motion.div
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: "auto" }}
-          className="mt-4 pt-3 border-t text-xs sm:text-sm text-muted-foreground"
+          className="mt-3 pt-2.5 border-t border-border/60 text-xs text-muted-foreground"
         >
           <span className="font-semibold text-foreground">Explanation: </span>
           {item.explanation}

@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Sparkles, Search, SlidersHorizontal } from "lucide-react";
+import { Sparkles, Search, SlidersHorizontal, FileText } from "lucide-react";
 import { getAISettings } from "@/lib/aiSettings";
 
 export default function Topbar({
   onSearch,
   onToggleChat,
   onOpenAISettings,
+  onOpenPDF,
   collaborators = [],
   readerCount = 1,
 }) {
@@ -62,6 +63,20 @@ export default function Topbar({
                 {readerCount}
               </span>
             </div>
+          )}
+
+          {/* PDF Document Import Trigger */}
+          {onOpenPDF && (
+            <button
+              type="button"
+              onClick={onOpenPDF}
+              className="h-7 px-2.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground text-xs font-normal transition-colors border border-border/50 inline-flex items-center gap-1.5"
+              title="Import PDF document & study deck"
+              data-testid="topbar-import-pdf-btn"
+            >
+              <FileText size={12} />
+              <span className="hidden sm:inline">Import PDF</span>
+            </button>
           )}
 
           {/* AI Settings Trigger */}

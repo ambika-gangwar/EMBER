@@ -20,6 +20,8 @@ import {
   List,
   Network,
   Share2,
+  FileText,
+  Palette,
 } from "lucide-react";
 
 const items = [
@@ -36,7 +38,9 @@ const items = [
   { key: "summarize", label: "Executive summary", desc: "Synthesize thesis & bottom line", icon: ScrollText, group: "Ember Thinking Tools" },
   { key: "keypoints", label: "Core insights", desc: "5-8 high-leverage realizations", icon: Lightbulb, group: "Ember Thinking Tools" },
   { key: "mindmap", label: "Mind Map", desc: "Interactive concept tree visualization", icon: Network, group: "Ember Thinking Tools" },
+  { key: "whiteboard", label: "Whiteboard canvas", desc: "Touchscreen sketching, vector diagrams & sticky cards", icon: Palette, group: "Ember Thinking Tools" },
   { key: "study", label: "Study deck", desc: "Interactive flashcards & quiz", icon: BookOpenCheck, group: "Ember Thinking Tools" },
+  { key: "pdf", label: "Import PDF", desc: "Parse PDF, extract synopsis & generate study deck", icon: FileText, group: "Ember Thinking Tools" },
   { key: "connections", label: "Connected Notes", desc: "Backlinks & knowledge graph links", icon: Share2, group: "Ember Thinking Tools" },
 
   // Structure & Blocks

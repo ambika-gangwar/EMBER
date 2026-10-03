@@ -103,6 +103,7 @@ export default function Sidebar({
   onReorder,
   loading,
   onSearch,
+  onOpenPDF,
 }) {
   const loc = useLocation();
   const { theme, toggle } = useTheme();
@@ -143,6 +144,14 @@ export default function Sidebar({
               </span>
             </Link>
             <div className="flex items-center gap-1">
+              <button
+                onClick={onOpenPDF}
+                className="h-6 w-6 inline-flex items-center justify-center rounded-md hover:bg-background/80 text-muted-foreground hover:text-foreground transition-colors"
+                title="Import PDF & Study Notes"
+                data-testid="sidebar-import-pdf-btn"
+              >
+                <FileText size={13} />
+              </button>
               <button
                 onClick={onCreate}
                 className="h-6 w-6 inline-flex items-center justify-center rounded-md hover:bg-background/80 text-muted-foreground hover:text-foreground transition-colors"

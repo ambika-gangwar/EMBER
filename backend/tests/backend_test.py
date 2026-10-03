@@ -22,7 +22,7 @@ def client():
 def demo_token(client):
     r = client.post("/api/auth/login", json={"email": DEMO_EMAIL, "password": DEMO_PASSWORD})
     assert r.status_code == 200, f"Demo login failed: {r.status_code} {r.text}"
-    return r.json()["token"]
+    return r.json()["token"]s
 
 @pytest.fixture(scope="session")
 def auth_headers(demo_token):

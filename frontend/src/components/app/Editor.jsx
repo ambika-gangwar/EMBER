@@ -24,6 +24,7 @@ import {
   Share2,
   MoreHorizontal,
   ArrowLeft,
+  Palette,
 } from "lucide-react";
 import jsPDF from "jspdf";
 import SlashMenu from "./SlashMenu";
@@ -33,9 +34,11 @@ import LiveCursors from "./LiveCursors";
 import SelectionToolbar from "./SelectionToolbar";
 import MindMapView from "./MindMapView";
 import NoteConnections from "./NoteConnections";
+import WhiteboardView from "./WhiteboardView";
 import StudyView from "./StudyView";
 import CollabView from "./CollabView";
 import KnowledgeGraphModal from "./KnowledgeGraphModal";
+import PDFImportModal from "./PDFImportModal";
 import ModeSwitcher from "./ModeSwitcher";
 import InlineCopilot from "./InlineCopilot";
 import { getAIPayloadExtra } from "@/lib/aiSettings";
@@ -66,6 +69,7 @@ export default function Editor({ note, onChanged, onDeleted, onOpenAIModal }) {
   const [createSubView, setCreateSubView] = useState("edit");
 
   const [graphModalOpen, setGraphModalOpen] = useState(false);
+  const [pdfModalOpen, setPdfModalOpen] = useState(false);
 
   // Selection toolbar state
   const [selectionRange, setSelectionRange] = useState({ start: 0, end: 0, text: "" });
@@ -332,6 +336,19 @@ export default function Editor({ note, onChanged, onDeleted, onOpenAIModal }) {
       setContent(cleanBefore + cleanAfter);
       sendEdit(title, cleanBefore + cleanAfter);
       handleContinue();
+      return;
+    }
+    if (key === "whiteboard" || key === "draw") {
+      setContent(cleanBefore + cleanAfter);
+      sendEdit(title, cleanBefore + cleanAfter);
+      setNotebookMode("create");
+      setCreateSubView("whiteboard");
+      return;
+    }
+    if (key === "pdf") {
+      setContent(cleanBefore + cleanAfter);
+      sendEdit(title, cleanBefore + cleanAfter);
+      setPdfModalOpen(true);
       return;
     }
     if (["improve", "expand", "assumptions", "perspective", "missing", "research", "counter", "actions", "summarize", "keypoints", "bullets"].includes(key)) {
@@ -639,7 +656,7 @@ export default function Editor({ note, onChanged, onDeleted, onOpenAIModal }) {
         {/* Right: Mode-Specific Actions & Secondary Menu */}
         <div className="flex items-center gap-1.5">
           {/* Sub-view switcher in Create Mode */}
-          {notebookMode === "create" && createSubView !== "mindmap" && createSubView !== "connections" && (
+          {notebookMode === "create" && createSubView !== "mindmap" && createSubView !== "connections" && createSubView !== "whiteboard" && (
             <div className="flex items-center p-0.5 rounded-lg bg-secondary/80 border border-border/60">
               <button
                 type="button"
@@ -677,11 +694,23 @@ export default function Editor({ note, onChanged, onDeleted, onOpenAIModal }) {
               >
                 Preview
               </button>
+              <button
+                type="button"
+                onClick={() => setCreateSubView("whiteboard")}
+                className={`h-6 px-2.5 text-xs rounded-md transition-colors ${
+                  createSubView === "whiteboard"
+                    ? "bg-card text-foreground shadow-xs font-medium"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                title="Whiteboard Canvas"
+              >
+                Canvas
+              </button>
             </div>
           )}
 
-          {/* Return to writing button if in Mindmap or Connections subview */}
-          {notebookMode === "create" && (createSubView === "mindmap" || createSubView === "connections") && (
+          {/* Return to writing button if in Mindmap, Connections, or Whiteboard subview */}
+          {notebookMode === "create" && (createSubView === "mindmap" || createSubView === "connections" || createSubView === "whiteboard") && (
             <button
               onClick={() => setCreateSubView("edit")}
               className="h-7 px-2.5 rounded-md border border-border/60 bg-background hover:bg-muted text-xs font-medium inline-flex items-center gap-1.5 transition-colors"
@@ -702,6 +731,17 @@ export default function Editor({ note, onChanged, onDeleted, onOpenAIModal }) {
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48 rounded-xl p-1 shadow-float">
+              <DropdownMenuItem
+                onClick={() => {
+                  setNotebookMode("create");
+                  setCreateSubView("whiteboard");
+                }}
+                className="rounded-lg text-xs gap-2 py-1.5"
+              >
+                <Palette size={13} className="opacity-70" />
+                <span>Whiteboard Canvas</span>
+              </DropdownMenuItem>
+
               <DropdownMenuItem
                 onClick={() => {
                   setNotebookMode("create");
@@ -766,6 +806,20 @@ export default function Editor({ note, onChanged, onDeleted, onOpenAIModal }) {
                 noteTitle={title}
                 noteContent={content}
                 onInsertText={insertText}
+              />
+            </div>
+          )}
+
+          {/* Sub-view: Whiteboard Canvas */}
+          {createSubView === "whiteboard" && (
+            <div className="max-w-6xl w-full mx-auto px-4 sm:px-8 pt-4 pb-12 flex-1 flex flex-col">
+              <WhiteboardView
+                noteId={note.id}
+                noteTitle={title}
+                onInsertImage={(imgMarkdown) => {
+                  insertText(imgMarkdown);
+                  setCreateSubView("edit");
+                }}
               />
             </div>
           )}
@@ -913,7 +967,17 @@ export default function Editor({ note, onChanged, onDeleted, onOpenAIModal }) {
       {/* ======================================================== */}
       {notebookMode === "study" && (
         <div className="flex-1 flex flex-col">
-          <StudyView noteId={note.id} embedded={true} />
+          <StudyView
+            noteId={note.id}
+            embedded={true}
+            noteTitle={title}
+            noteContent={content}
+            onNoteChange={(newTitle, newContent) => {
+              setTitle(newTitle);
+              setContent(newContent);
+              sendEdit(newTitle, newContent);
+            }}
+          />
         </div>
       )}
 
@@ -937,6 +1001,20 @@ export default function Editor({ note, onChanged, onDeleted, onOpenAIModal }) {
 
       {/* Global Workspace Knowledge Graph Modal */}
       <KnowledgeGraphModal open={graphModalOpen} onClose={() => setGraphModalOpen(false)} />
+
+      {/* PDF Document Intelligence & Study Importer Modal */}
+      <PDFImportModal
+        open={pdfModalOpen}
+        onClose={() => setPdfModalOpen(false)}
+        onNoteCreated={(createdNote, isStudy) => {
+          onChanged?.();
+          if (isStudy) {
+            nav(`/app/study/${createdNote.id}`);
+          } else {
+            nav(`/app/n/${createdNote.id}`);
+          }
+        }}
+      />
     </div>
   );
 }

@@ -109,6 +109,11 @@ class StudySetSave(BaseModel):
 class MindMapSave(BaseModel):
     root: Optional[Dict[str, Any]] = None
 
+class DrawingSave(BaseModel):
+    elements: Optional[List[Dict[str, Any]]] = []
+    app_state: Optional[Dict[str, Any]] = {}
+    preview_url: Optional[str] = ""
+
 class AIRequest(BaseModel):
     text: str
     note_id: Optional[str] = ""
@@ -152,6 +157,14 @@ class AIFacilitateRequest(BaseModel):
     comments: Optional[List[Dict[str, Any]]] = []
     activities: Optional[List[Dict[str, Any]]] = []
     prompt: Optional[str] = ""
+    model: Optional[str] = None
+    provider: Optional[str] = None
+    api_key: Optional[str] = None
+
+class PDFProcessRequest(BaseModel):
+    filename: Optional[str] = "Document.pdf"
+    text: str
+    action: Optional[Literal["synopsis", "reformat", "study", "full_note"]] = "full_note"
     model: Optional[str] = None
     provider: Optional[str] = None
     api_key: Optional[str] = None
@@ -478,6 +491,32 @@ async def save_mindmap(note_id: str, payload: MindMapSave, user=Depends(current_
         "updated_at": now,
     }
     await db.mind_maps.update_one(
+        {"note_id": note_id, "user_id": user["id"]},
+        {"$set": doc},
+        upsert=True,
+    )
+    return {"ok": True, "updated_at": now}
+
+# ============= WHITEBOARD & DRAWING PERSISTENCE =============
+@api_router.get("/notes/{note_id}/drawing")
+async def get_drawing(note_id: str, user=Depends(current_user)):
+    doc = await db.drawings.find_one({"note_id": note_id, "user_id": user["id"]}, {"_id": 0})
+    if not doc:
+        return {"elements": [], "app_state": {}, "preview_url": ""}
+    return doc
+
+@api_router.post("/notes/{note_id}/drawing")
+async def save_drawing(note_id: str, payload: DrawingSave, user=Depends(current_user)):
+    now = now_iso()
+    doc = {
+        "note_id": note_id,
+        "user_id": user["id"],
+        "elements": payload.elements or [],
+        "app_state": payload.app_state or {},
+        "preview_url": payload.preview_url or "",
+        "updated_at": now,
+    }
+    await db.drawings.update_one(
         {"note_id": note_id, "user_id": user["id"]},
         {"$set": doc},
         upsert=True,
@@ -988,6 +1027,35 @@ async def ai_tutor(req: EmberTutorRequest, user=Depends(current_user)):
         level=level,
         style=style,
     )
+
+@api_router.post("/ai/pdf-process")
+async def ai_pdf_process(req: PDFProcessRequest, user=Depends(current_user)):
+    """Analyze uploaded PDF text, distill executive synopsis, generate structured note, and extract study deck."""
+    filename = req.filename or "Document.pdf"
+    text = req.text.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Empty document text")
+
+    prompt = (
+        f"Filename: '{filename}'\n\n"
+        f"Raw Document Text:\n{text[:12000]}\n\n"
+        "Analyze this PDF document and output a comprehensive synthesis in valid JSON with these exact fields:\n"
+        "1. 'title': Clean, concise title\n"
+        "2. 'synopsis': High-signal executive synopsis (2-3 paragraphs)\n"
+        "3. 'structured_content': Beautifully formatted, cleaned Markdown note with headers (#, ##, ###), bold key concepts, and structured bullets (fixing raw PDF line breaks).\n"
+        "4. 'cards': Array of 5-8 active recall flashcards [{'q':'...','a':'...','category':'...'}]\n"
+        "5. 'quiz': Array of 4-5 multiple choice questions [{'q':'...','options':['...','...','...','...'],'answer':0,'explanation':'...'}]\n"
+        "Respond ONLY in valid JSON matching this schema."
+    )
+    sys = (
+        "You are an expert document intelligence engine inside Ember. "
+        "Transform unstructured PDF texts into beautifully structured, publication-grade study notes and active recall decks."
+    )
+    res = await ai.generate_text(sys, prompt, req.provider, req.api_key, req.model)
+    parsed = parse_json_block(res) if res else None
+    if not parsed or not isinstance(parsed, dict) or not parsed.get("structured_content"):
+        parsed = ai.fallback_pdf_process(text, filename, req.action or "full_note")
+    return parsed
 
 @api_router.post("/ai/chat")
 async def ai_chat(req: AIChatRequest, user=Depends(current_user)):
