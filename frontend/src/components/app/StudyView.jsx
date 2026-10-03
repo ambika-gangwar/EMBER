@@ -31,6 +31,7 @@ import {
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { getAIPayloadExtra } from "@/lib/aiSettings";
+import { FormattedContent, formatInlineText } from "@/lib/formatContent";
 
 export default function StudyView({
   noteId,
@@ -531,7 +532,7 @@ export default function StudyView({
                           transition={{ duration: 0.15 }}
                           className="text-base sm:text-lg font-medium leading-relaxed text-foreground max-w-xl"
                         >
-                          {flipped ? currentCard?.a : currentCard?.q}
+                          {formatInlineText(flipped ? currentCard?.a : currentCard?.q)}
                         </motion.div>
                       </AnimatePresence>
                     </div>
@@ -704,7 +705,7 @@ export default function StudyView({
                           <Plus size={11} /> Add to note pad
                         </button>
                       </div>
-                      <p className="text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">{summary}</p>
+                      <FormattedContent content={summary} className="text-sm leading-relaxed text-foreground/90" />
                     </div>
                   )}
 
@@ -721,9 +722,7 @@ export default function StudyView({
                           <Plus size={11} /> Add to note pad
                         </button>
                       </div>
-                      <div className="text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap font-sans">
-                        {keypoints}
-                      </div>
+                      <FormattedContent content={keypoints} className="text-sm leading-relaxed text-foreground/90 font-sans" />
                     </div>
                   )}
                 </div>
@@ -779,7 +778,11 @@ export default function StudyView({
                           : "bg-muted/70 text-foreground border border-border/60 rounded-bl-xs"
                       }`}
                     >
-                      <p className="whitespace-pre-wrap">{msg.content}</p>
+                      {msg.role === "user" ? (
+                        <p className="whitespace-pre-wrap">{msg.content}</p>
+                      ) : (
+                        <FormattedContent content={msg.content} />
+                      )}
                       {msg.role === "assistant" && i > 0 && (
                         <div className="mt-2 pt-2 border-t border-border/40 flex justify-end">
                           <button
@@ -909,7 +912,7 @@ function FlashcardItem({ q, a, idx, category, onAppend }) {
             exit={{ opacity: 0, y: -3 }}
             className="text-xs sm:text-sm leading-relaxed font-medium text-foreground"
           >
-            {flipped ? a : q}
+            {formatInlineText(flipped ? a : q)}
           </motion.div>
         </AnimatePresence>
       </div>
@@ -949,7 +952,7 @@ function QuizItem({ item, idx, onAnswer, onAppend }) {
     <div className="p-5 rounded-2xl border border-border bg-card shadow-xs" data-testid={`quiz-item-${idx}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="font-semibold text-xs sm:text-sm leading-snug text-foreground">
-          {idx + 1}. {item.q}
+          {idx + 1}. {formatInlineText(item.q)}
         </div>
         {onAppend && picked !== null && (
           <button
@@ -1000,7 +1003,7 @@ function QuizItem({ item, idx, onAnswer, onAppend }) {
                     </span>
                   )}
                 </span>
-                <span className="leading-snug">{opt}</span>
+                <span className="leading-snug">{formatInlineText(opt)}</span>
               </div>
             </button>
           );
@@ -1014,7 +1017,7 @@ function QuizItem({ item, idx, onAnswer, onAppend }) {
           className="mt-3 pt-2.5 border-t border-border/60 text-xs text-muted-foreground"
         >
           <span className="font-semibold text-foreground">Explanation: </span>
-          {item.explanation}
+          {formatInlineText(item.explanation)}
         </motion.div>
       )}
     </div>

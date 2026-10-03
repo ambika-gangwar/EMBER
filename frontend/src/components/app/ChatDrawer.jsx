@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { streamAI, getAISettings } from "@/lib/aiSettings";
+import { FormattedContent } from "@/lib/formatContent";
 
 export default function ChatDrawer({ note, selectedText, onInsertText, onClose, mode = "create" }) {
   const [messages, setMessages] = useState([
@@ -167,16 +168,16 @@ export default function ChatDrawer({ note, selectedText, onInsertText, onClose, 
             return (
               <div key={i} className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}>
                 <div
-                  className={`max-w-[90%] px-3.5 py-2.5 rounded-lg text-xs leading-relaxed whitespace-pre-wrap ${
+                  className={`max-w-[92%] px-3.5 py-2.5 rounded-xl text-xs leading-relaxed ${
                     isUser
-                      ? "bg-foreground text-background"
-                      : "bg-secondary/60 text-foreground border border-border/60"
+                      ? "bg-foreground text-background whitespace-pre-wrap font-medium"
+                      : "bg-card text-foreground border border-border/70 shadow-xs"
                   }`}
                   data-testid={`chat-msg-${i}`}
                 >
-                  {m.content}
+                  {isUser ? m.content : <FormattedContent content={m.content} />}
                   {!isUser && streaming && i === messages.length - 1 && (
-                    <span className="inline-block w-1.5 h-3 bg-foreground ml-1 animate-pulse" />
+                    <span className="inline-block w-1.5 h-3 bg-primary ml-1 animate-pulse" />
                   )}
                 </div>
 

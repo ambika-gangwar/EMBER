@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, X, Check, Loader2, CornerDownLeft } from "lucide-react";
 import { streamAI } from "@/lib/aiSettings";
 import { toast } from "sonner";
+import { FormattedContent } from "@/lib/formatContent";
 
 export default function InlineCopilot({
   noteId,
@@ -123,9 +124,7 @@ export default function InlineCopilot({
           {/* Streamed Result Box */}
           {streamedResult && (
             <div className="mt-3 pt-3 border-t border-border/40">
-              <div className="text-xs text-foreground leading-relaxed whitespace-pre-wrap max-h-60 overflow-y-auto">
-                {streamedResult}
-              </div>
+              <FormattedContent content={streamedResult} className="text-xs text-foreground leading-relaxed max-h-60 overflow-y-auto p-1" />
               <div className="mt-3 flex items-center justify-end gap-2 text-xs">
                 <button
                   onClick={handleDiscard}
