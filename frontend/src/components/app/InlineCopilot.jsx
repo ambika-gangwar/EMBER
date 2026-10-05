@@ -32,7 +32,7 @@ export default function InlineCopilot({
     };
     window.addEventListener("ember_inline_copilot_trigger", handleTrigger);
     return () => window.removeEventListener("ember_inline_copilot_trigger", handleTrigger);
-  }, [noteContent, noteTitle]);
+  }, [noteContent, noteTitle, handleStartStream]);
 
   const handleStartStream = async (customPrompt) => {
     const textToRun = (customPrompt || prompt).trim();
