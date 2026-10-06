@@ -20,21 +20,7 @@ export default function InlineCopilot({
   const [streamedResult, setStreamedResult] = useState("");
   const inputRef = useRef(null);
 
-  // Listen for custom trigger event if needed
-  useEffect(() => {
-    const handleTrigger = (e) => {
-      setOpen(true);
-      if (e.detail?.prompt) {
-        handleStartStream(e.detail.prompt);
-      } else {
-        setTimeout(() => inputRef.current?.focus(), 100);
-      }
-    };
-    window.addEventListener("ember_inline_copilot_trigger", handleTrigger);
-    return () => window.removeEventListener("ember_inline_copilot_trigger", handleTrigger);
-  }, [noteContent, noteTitle, handleStartStream]);
-
-  const handleStartStream = async (customPrompt) => {
+   const handleStartStream = async (customPrompt) => {
     const textToRun = (customPrompt || prompt).trim();
     if (!textToRun || streaming) return;
 
@@ -62,6 +48,22 @@ export default function InlineCopilot({
       },
     });
   };
+  
+  // Listen for custom trigger event if needed
+  useEffect(() => {
+    const handleTrigger = (e) => {
+      setOpen(true);
+      if (e.detail?.prompt) {
+        handleStartStream(e.detail.prompt);
+      } else {
+        setTimeout(() => inputRef.current?.focus(), 100);
+      }
+    };
+    window.addEventListener("ember_inline_copilot_trigger", handleTrigger);
+    return () => window.removeEventListener("ember_inline_copilot_trigger", handleTrigger);
+  }, [noteContent, noteTitle, handleStartStream]);
+
+  
 
   const handleAccept = () => {
     if (!streamedResult) return;
